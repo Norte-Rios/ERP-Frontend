@@ -12,7 +12,7 @@ const OperationalSidebar = () => {
   return (
     <aside className="w-64 bg-brand-green-dark text-white flex flex-col min-h-screen">
       <div className="px-6 py-4 border-b border-brand-green-light/30">
-        <img src="/logo.svg" alt="Logótipo" className="h-12 mx-auto" />
+        <img src="/norte-logo.png" alt="Logótipo Norte Rios" className="h-16 mx-auto" />
       </div>
       <nav className="flex-1 px-4 py-4 space-y-2">
         <NavLink to="/operational/tasks" className={navLinkClass}>

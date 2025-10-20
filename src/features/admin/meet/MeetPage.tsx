@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Video, UserPlus, Search, X } from 'lucide-react';
-import { CalendarEvent } from '../../admin/agenda/types';
+import { CalendarEvent } from '../agenda/types';
 
 interface MeetPageProps {
   events: CalendarEvent[];
@@ -14,7 +14,6 @@ const ScheduleMeetingModal = ({ isOpen, onClose, onSave }) => {
   const [endTime, setEndTime] = useState('10:00');
   const [participants, setParticipants] = useState<string[]>([]);
   const [currentParticipant, setCurrentParticipant] = useState('');
-  const [location, setLocation] = useState('');
 
   if (!isOpen) return null;
 
@@ -40,8 +39,7 @@ const ScheduleMeetingModal = ({ isOpen, onClose, onSave }) => {
       date,
       startTime,
       endTime,
-      participants,
-      location
+      participants
     });
     alert('Reunião agendada com sucesso! (Simulação)');
     onClose();
@@ -76,19 +74,15 @@ const ScheduleMeetingModal = ({ isOpen, onClose, onSave }) => {
             </div>
           </div>
           <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700">Local</label>
-            <input type="text" id="location" value={location} onChange={e => setLocation(e.target.value)} placeholder="Ex: Sala de Conferências A" className="mt-1 block w-full input-style" />
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-700">Participantes</label>
             <div className="flex items-center gap-2">
-              <input 
-                type="email" 
-                value={currentParticipant} 
+              <input
+                type="email"
+                value={currentParticipant}
                 onChange={e => setCurrentParticipant(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddParticipant(); }}}
-                placeholder="Digite o e-mail e pressione Enter" 
-                className="mt-1 block w-full input-style" 
+                placeholder="Digite o e-mail e pressione Enter"
+                className="mt-1 block w-full input-style"
               />
               <button type="button" onClick={handleAddParticipant} className="px-4 py-2 mt-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 font-semibold whitespace-nowrap">Adicionar</button>
             </div>
@@ -119,11 +113,11 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const itemsPerPage = 10;
 
-  const meetings = useMemo(() => 
-    events.filter(event => 
-      (event.type === 'task' && event.data.type === 'Reunião') || 
+  const meetings = useMemo(() =>
+    events.filter(event =>
+      (event.type === 'task' && event.data.type === 'Reunião') ||
       (event.title.toLowerCase().includes('reunião'))
-    ).filter(event => 
+    ).filter(event =>
       event.title.toLowerCase().includes(searchTerm.toLowerCase())
     ), [events, searchTerm]);
 
@@ -147,7 +141,7 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
       setCurrentPage(page);
     }
   };
-  
+
   const handleSaveMeeting = (meetingData) => {
     // Lógica para adicionar a nova reunião à lista principal (será implementada com a integração)
     console.log("Nova reunião para salvar:", meetingData);
@@ -156,7 +150,7 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
 
   return (
     <div className="container mx-auto space-y-8">
-      <ScheduleMeetingModal 
+      <ScheduleMeetingModal
         isOpen={isScheduleModalOpen}
         onClose={() => setIsScheduleModalOpen(false)}
         onSave={handleSaveMeeting}
@@ -168,8 +162,8 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><UserPlus /> Participar de uma reunião</h2>
           <div className="flex items-center gap-2">
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Cole o link da reunião aqui"
               value={link}
               onChange={(e) => setLink(e.target.value)}
@@ -197,8 +191,8 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
           <h2 className="text-xl font-semibold text-gray-700">Reuniões Agendadas</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Buscar reunião..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -221,24 +215,24 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
               {paginatedMeetings.map((event, index) => {
                 const isFirst = index === 0 && currentPage === 1;
                 const buttonClass = `px-4 py-2 text-sm font-semibold text-white rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed ${isFirst ? 'bg-green-500 hover:bg-green-600 animate-pulse' : 'bg-green-600 hover:bg-green-700'}`;
-
+                
                 return (
-                  <tr key={event.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-4 border-b border-gray-200 text-sm">{event.title}</td>
-                    <td className="px-5 py-4 border-b border-gray-200 text-sm">{event.start.toLocaleDateString()}</td>
-                    <td className="px-5 py-4 border-b border-gray-200 text-sm">
-                      {`${event.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${event.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}
-                    </td>
-                    <td className="px-5 py-4 border-b border-gray-200 text-sm text-right">
-                      <button 
-                          onClick={() => window.open((event.data as any).locationOrLink, '_blank')}
-                          disabled={!(event.data as any).locationOrLink}
-                          className={buttonClass}
-                      >
-                          Participar
-                      </button>
-                    </td>
-                  </tr>
+                <tr key={event.id} className="hover:bg-gray-50">
+                  <td className="px-5 py-4 border-b border-gray-200 text-sm">{event.title}</td>
+                  <td className="px-5 py-4 border-b border-gray-200 text-sm">{event.start.toLocaleDateString()}</td>
+                  <td className="px-5 py-4 border-b border-gray-200 text-sm">
+                    {`${event.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${event.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}
+                  </td>
+                  <td className="px-5 py-4 border-b border-gray-200 text-sm text-right">
+                    <button
+                        onClick={() => window.open((event.data as any).locationOrLink, '_blank')}
+                        disabled={!(event.data as any).locationOrLink}
+                        className={buttonClass}
+                    >
+                        Participar
+                    </button>
+                  </td>
+                </tr>
                 )
               })}
               {paginatedMeetings.length === 0 && (
@@ -249,7 +243,7 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Paginação */}
         {totalPages > 1 && (
           <div className="px-5 py-5 bg-white border-t flex flex-col xs:flex-row items-center xs:justify-between">
@@ -257,14 +251,14 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
               Página {currentPage} de {totalPages}
             </span>
             <div className="inline-flex mt-2 xs:mt-0">
-              <button 
+              <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
                 className="text-sm bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-l disabled:opacity-50"
               >
                 Anterior
               </button>
-              <button 
+              <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 className="text-sm bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-r disabled:opacity-50"

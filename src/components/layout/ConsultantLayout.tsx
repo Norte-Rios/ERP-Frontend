@@ -14,7 +14,7 @@ const ConsultantSidebar = () => {
   return (
     <aside className="w-64 bg-brand-green-dark text-white flex flex-col min-h-screen">
       <div className="px-6 py-4 border-b border-brand-green-light/30">
-        <img src="/logo.svg" alt="Logótipo" className="h-12 mx-auto" />
+        <img src="/logo-norte.png" alt="Logótipo" className="h-12 mx-auto" />
       </div>
       <nav className="flex-1 px-4 py-4 space-y-2">
         <NavLink to="/consultant/dashboard" end className={navLinkClass}>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, CheckCircle, Video } from 'lucide-react';
 import { Service } from '../services/types';
 import { Task, CalendarEvent } from './types';
 import { Link } from 'react-router-dom';
@@ -25,7 +25,8 @@ const NewEventModal = ({ isOpen, onClose, onSave, selectedDate }) => {
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const [type, setType] = useState<'Reunião' | 'Tarefa Pessoal' | 'Lembrete'>('Reunião');
-  const [locationOrLink, setLocationOrLink] = useState('');
+  const [location, setLocation] = useState('');
+  const [addMeet, setAddMeet] = useState(false);
   const [participants, setParticipants] = useState<string[]>([]);
   const [currentParticipant, setCurrentParticipant] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -46,7 +47,8 @@ const NewEventModal = ({ isOpen, onClose, onSave, selectedDate }) => {
 
   const resetForm = () => {
     setTitle('');
-    setLocationOrLink('');
+    setLocation('');
+    setAddMeet(false);
     setParticipants([]);
     setCurrentParticipant('');
     setType('Reunião');
@@ -70,6 +72,15 @@ const NewEventModal = ({ isOpen, onClose, onSave, selectedDate }) => {
       if (!title.trim()) {
         throw new Error('O título do evento é obrigatório.');
       }
+      
+      let locationOrLink = location;
+      if (addMeet) {
+        // Futuramente, a chamada à API para criar o link do Meet viria aqui
+        // Por agora, vamos simular um link.
+        locationOrLink = `https://meet.google.com/gen-${Date.now()}`;
+        console.log("Link do Meet gerado (simulação):", locationOrLink);
+      }
+
       await onSave({ title, startDate, endDate, type, locationOrLink, participants, startTime, endTime });
       resetForm();
       onClose();
@@ -85,160 +96,182 @@ const NewEventModal = ({ isOpen, onClose, onSave, selectedDate }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-8 rounded-lg shadow-2xl max-w-2xl w-full">
+      <div className="bg-white p-8 rounded-lg shadow-2xl max-w-3xl w-full">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold text-gray-800">Criar Novo Evento</h3>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200">
             <X className="h-6 w-6 text-gray-600" />
           </button>
         </div>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-              Título
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          
+          {/* Coluna da Esquerda */}
+          <div className="space-y-4">
             <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
-                Data de Início
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                Título
               </label>
               <input
-                type="date"
-                id="startDate"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="mt-1 block w-full input-style"
               />
             </div>
             <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
-                Data de Fim
+              <label htmlFor="type" className="block text-sm font-medium text-gray-700">
+                Tipo de Evento
               </label>
-              <input
-                type="date"
-                id="endDate"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              />
+              <select
+                id="type"
+                value={type}
+                onChange={(e) => setType(e.target.value as any)}
+                className="mt-1 block w-full input-style"
+              >
+                <option>Reunião</option>
+                <option>Tarefa Pessoal</option>
+                <option>Lembrete</option>
+              </select>
             </div>
-          </div>
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-              Tipo de Evento
-            </label>
-            <select
-              id="type"
-              value={type}
-              onChange={(e) => setType(e.target.value as any)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            >
-              <option>Reunião</option>
-              <option>Tarefa Pessoal</option>
-              <option>Lembrete</option>
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">
-                Hora de Início
-              </label>
-              <input
-                type="time"
-                id="startTime"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              />
-            </div>
-            {type !== 'Lembrete' && (
-              <div>
-                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">
-                  Hora de Fim
-                </label>
-                <input
-                  type="time"
-                  id="endTime"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
-              </div>
-            )}
-          </div>
-          {type === 'Reunião' && (
-            <>
-              <div>
-                <label htmlFor="locationOrLink" className="block text-sm font-medium text-gray-700">
-                  Local ou Link (Google Meet)
-                </label>
-                <input
-                  type="text"
-                  id="locationOrLink"
-                  value={locationOrLink}
-                  onChange={(e) => setLocationOrLink(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Ex: https://meet.google.com/xxx-xxxx-xxx"
-                />
-              </div>
-              <div>
-                <label htmlFor="participants" className="block text-sm font-medium text-gray-700">
-                  Participantes
-                </label>
-                <div className="flex items-center gap-2">
+             {type === 'Reunião' && (
+              <>
+                <div>
+                  <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+                    Local
+                  </label>
                   <input
                     type="text"
-                    value={currentParticipant}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddParticipant();
-                      }
-                    }}
-                    onChange={(e) => setCurrentParticipant(e.target.value)}
-                    placeholder="Nome ou e-mail"
-                    className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    id="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="mt-1 block w-full input-style"
+                    placeholder="Ex: Sala de Reuniões 1"
+                    disabled={addMeet}
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddParticipant}
-                    className="px-4 py-2 mt-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 font-semibold whitespace-nowrap"
-                  >
-                    Adicionar
-                  </button>
                 </div>
-                <div className="mt-2 space-y-2 max-h-20 overflow-y-auto">
-                  {participants.map((p, i) => (
-                    <div key={i} className="flex items-center justify-between bg-gray-100 p-2 rounded-md text-sm">
-                      <span>{p}</span>
+
+                 <div className="flex items-center">
                       <button
-                        type="button"
-                        onClick={() => handleRemoveParticipant(p)}
-                        className="text-red-500 hover:text-red-700"
+                          type="button"
+                          onClick={() => setAddMeet(!addMeet)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold text-sm ${addMeet ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'}`}
                       >
-                        <X size={16} />
+                          <Video size={16} />
+                          {addMeet ? 'Videoconferência Adicionada' : 'Adicionar videoconferência'}
                       </button>
-                    </div>
-                  ))}
+                  </div>
+              </>
+            )}
+          </div>
+
+          {/* Coluna da Direita */}
+          <div className="space-y-4">
+             <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
+                    Data de Início
+                  </label>
+                  <input
+                    type="date"
+                    id="startDate"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="mt-1 block w-full input-style"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
+                    Data de Fim
+                  </label>
+                  <input
+                    type="date"
+                    id="endDate"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="mt-1 block w-full input-style"
+                  />
                 </div>
               </div>
-            </>
-          )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">
+                    Hora de Início
+                  </label>
+                  <input
+                    type="time"
+                    id="startTime"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="mt-1 block w-full input-style"
+                  />
+                </div>
+                {type !== 'Lembrete' && (
+                  <div>
+                    <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">
+                      Hora de Fim
+                    </label>
+                    <input
+                      type="time"
+                      id="endTime"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="mt-1 block w-full input-style"
+                    />
+                  </div>
+                )}
+              </div>
+               {type === 'Reunião' && (
+                  <div>
+                    <label htmlFor="participants" className="block text-sm font-medium text-gray-700">
+                      Participantes
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={currentParticipant}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddParticipant();
+                          }
+                        }}
+                        onChange={(e) => setCurrentParticipant(e.target.value)}
+                        placeholder="Nome ou e-mail"
+                        className="mt-1 block w-full input-style"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddParticipant}
+                        className="px-4 py-2 mt-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 font-semibold whitespace-nowrap"
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+                    <div className="mt-2 space-y-2 max-h-20 overflow-y-auto">
+                      {participants.map((p, i) => (
+                        <div key={i} className="flex items-center justify-between bg-gray-100 p-2 rounded-md text-sm">
+                          <span>{p}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveParticipant(p)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+              )}
+          </div>
         </div>
         {saveError && (
           <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
             <strong>Erro:</strong> {saveError}
           </div>
         )}
-        <div className="mt-8 flex justify-end gap-4">
+        <div className="mt-8 flex justify-end gap-4 border-t pt-6">
           <button
             onClick={onClose}
             disabled={isSaving}
@@ -258,6 +291,10 @@ const NewEventModal = ({ isOpen, onClose, onSave, selectedDate }) => {
     </div>
   );
 };
+
+interface AgendaPageProps {
+    services: Service[];
+}
 
 const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -502,7 +539,8 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
         {week.map((day, index) => (
           <div
             key={index}
-            className="relative min-h-[240px] bg-white p-2 border-r border-b border-gray-200"
+            onClick={() => handleOpenModal(day)}
+            className="relative min-h-[240px] bg-white p-2 border-r border-b border-gray-200 cursor-pointer hover:bg-gray-50"
           >
             <div className="mt-1 space-y-1">
               {events
@@ -539,7 +577,7 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
             <div className="w-20 text-center text-sm text-gray-500 py-2 border-r border-gray-200">
               {hour}:00
             </div>
-            <div className="flex-1 p-2">
+            <div className="flex-1 p-2 cursor-pointer hover:bg-gray-50" onClick={() => handleOpenModal(currentDate)}>
               {dayEvents
                 .filter((event) => event.start.getHours() === hour)
                 .map((event) => (

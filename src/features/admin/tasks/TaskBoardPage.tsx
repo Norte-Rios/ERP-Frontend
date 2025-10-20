@@ -207,7 +207,7 @@ const NewTaskModal = ({ isOpen, onClose, onSave, members, columnId, allTags }) =
             <label className="block text-sm font-medium text-gray-700 mb-2">Etiquetas</label>
             <div className="flex flex-wrap gap-2">
                 {Object.values(allTags || {}).map((tag: Tag) => (
-                    <button key={tag.id} onClick={() => handleTagToggle(tag.id)} className={`px-3 py-1 text-sm rounded-full transition-transform transform hover:scale-105 ${selectedTagIds.includes(tag.id) ? tag.color + ' ring-2 ring-offset-1 ring-indigo-500' : 'bg-gray-200 text-gray-700'}`}>
+                    <button key={tag.id} onClick={() => handleTagToggle(tag.id)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedTagIds.includes(tag.id) ? tag.color + ' ring-2 ring-offset-1 ring-indigo-500' : 'bg-gray-200 text-gray-700'}`}>
                         {tag.name}
                     </button>
                 ))}
@@ -311,9 +311,9 @@ const TaskDetailModal = ({ isOpen, onClose, task, onSave, onDelete, onAddComment
               <input type="date" name="dueDate" value={editData.dueDate || ''} onChange={handleChange} className="w-full input-style" />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Etiquetas</label>
-                <div className="flex flex-wrap gap-2">
+                <div className="p-2 min-h-[60px] border border-gray-200 rounded-md flex flex-wrap gap-2">
                     {Object.values(allTags || {}).map((tag: Tag) => (
-                        <button key={tag.id} onClick={() => handleTagToggle(tag.id)} className={`px-3 py-1 text-sm rounded-full transition-transform transform hover:scale-105 ${editData.tagIds?.includes(tag.id) ? tag.color + ' ring-2 ring-offset-1 ring-indigo-500' : 'bg-gray-200 text-gray-700'}`}>
+                        <button key={tag.id} onClick={() => handleTagToggle(tag.id)} className={`px-3 py-1 text-sm rounded-full transition-colors ${editData.tagIds?.includes(tag.id) ? tag.color + ' ring-2 ring-offset-1 ring-indigo-500' : 'bg-gray-200 text-gray-700'}`}>
                             {tag.name}
                         </button>
                     ))}

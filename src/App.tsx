@@ -8,16 +8,16 @@ import { Contract } from './features/admin/contracts/types';
 import { mockContracts } from './features/admin/contracts/mockData';
 import { Consultant } from './features/admin/consultants/types';
 import { mockConsultants } from './features/admin/consultants/mockData';
-import { ServiceProvider } from './features/admin/providers/types';
-import { mockServiceProviders } from './features/admin/providers/mockData';
 import { Document } from './features/admin/documents/types';
 import { mockDocuments } from './features/admin/documents/mockData';
 import { TaskBoard, Task, Comment, Tag } from './features/admin/tasks/types';
 import { mockTaskBoard } from './features/admin/tasks/mockData';
 import { LogEntry, Announcement, LogComment } from './features/admin/logbook/types';
 import { mockLogEntries, mockAnnouncements } from './features/admin/logbook/mockData';
-import { RevenueTransaction, Expense, Payment } from './features/admin/financial/types';
-import { mockRevenues, mockExpenses, mockPayments } from './features/admin/financial/mockData';
+import { RevenueTransaction } from './features/admin/financial/types';
+import { mockRevenues } from './features/admin/financial/mockData';
+import { User } from './features/admin/users/types';
+import { mockUsers } from './features/admin/users/mockData';
 
 
 function App() {
@@ -25,14 +25,12 @@ function App() {
   const [clients, setClients] = useState<Client[]>(mockClients);
   const [contracts, setContracts] = useState<Contract[]>(mockContracts);
   const [consultants, setConsultants] = useState<Consultant[]>(mockConsultants);
-  const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>(mockServiceProviders);
   const [documents, setDocuments] = useState<Document[]>(mockDocuments);
   const [taskBoard, setTaskBoard] = useState<TaskBoard>(mockTaskBoard);
   const [logEntries, setLogEntries] = useState<LogEntry[]>(mockLogEntries);
   const [announcements, setAnnouncements] = useState<Announcement[]>(mockAnnouncements);
   const [revenues, setRevenues] = useState<RevenueTransaction[]>(mockRevenues);
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
-  const [payments, setPayments] = useState<Payment[]>(mockPayments);
+  const [users, setUsers] = useState<User[]>(mockUsers);
 
   const handleAddService = (service: Omit<Service, 'id'>) => {
     const newService = { ...service, id: `S${Date.now()}` };
@@ -47,107 +45,6 @@ function App() {
     );
   };
   
-  const handleDeleteService = (serviceId: string) => {
-    setServices(prevServices => prevServices.filter(s => s.id !== serviceId));
-  };
-
-  const handleClientAndContractAdd = (
-    clientData: Omit<Client, 'id' | 'registrationDate' | 'contractIds'>,
-    contractData: Omit<Contract, 'id' | 'clientId' | 'clientName' | 'status'>
-  ) => {
-    const newClientId = `C${Date.now()}`;
-    const newContractId = `CTR-${Date.now()}`;
-
-    const newClient: Client = {
-      ...clientData,
-      id: newClientId,
-      registrationDate: new Date().toISOString().split('T')[0],
-      contractIds: [newContractId],
-    };
-
-    const newContract: Contract = {
-      ...contractData,
-      id: newContractId,
-      clientId: newClientId,
-      clientName: newClient.companyName,
-      status: 'Em Negociação',
-    };
-
-    setClients(prev => [newClient, ...prev]);
-    setContracts(prev => [newContract, ...prev]);
-  };
-
-  const handleUpdateClient = (updatedClient: Client) => {
-    setClients(prevClients =>
-      prevClients.map(client =>
-        client.id === updatedClient.id ? updatedClient : client
-      )
-    );
-  };
-
-  const handleDeleteClient = (clientId: string) => {
-    setClients(prevClients => prevClients.filter(c => c.id !== clientId));
-  };
-
-  const handleAddContract = (contract: Omit<Contract, 'id'>) => {
-    const newContract = { ...contract, id: `CTR-${Date.now()}` };
-    setContracts(prevContracts => [newContract, ...prevContracts]);
-    setClients(prevClients => prevClients.map(client => 
-      client.id === newContract.clientId 
-        ? { ...client, contractIds: [...(client.contractIds || []), newContract.id] }
-        : client
-    ));
-  };
-
-  const handleUpdateContract = (updatedContract: Contract) => {
-    setContracts(prevContracts =>
-      prevContracts.map(contract =>
-        contract.id === updatedContract.id ? updatedContract : contract
-      )
-    );
-  };
-
-  const handleDeleteContract = (contractId: string) => {
-    setContracts(prevContracts => prevContracts.filter(c => c.id !== contractId));
-  };
-  
-  const handleAddConsultant = (consultant: Omit<Consultant, 'id'>) => {
-    const newConsultant = {
-      ...consultant,
-      id: `CON-${Date.now()}`,
-    };
-    setConsultants(prev => [newConsultant, ...prev]);
-  };
-
-  const handleUpdateConsultant = (updatedConsultant: Consultant) => {
-    setConsultants(prevConsultants =>
-      prevConsultants.map(consultant =>
-        consultant.id === updatedConsultant.id ? updatedConsultant : consultant
-      )
-    );
-  };
-
-  const handleDeleteConsultant = (consultantId: string) => {
-    setConsultants(prevConsultants => prevConsultants.filter(c => c.id !== consultantId));
-  };
-  
-  const handleAddProvider = (provider: Omit<ServiceProvider, 'id'>) => {
-    const newProvider = { ...provider, id: `PROV-${Date.now()}`};
-    setServiceProviders(prev => [newProvider, ...prev]);
-  };
-  
-  const handleUpdateProvider = (updatedProvider: ServiceProvider) => {
-    setServiceProviders(prevProviders =>
-      prevProviders.map(provider =>
-        provider.id === updatedProvider.id ? updatedProvider : provider
-      )
-    );
-  };
-
-  const handleDeleteProvider = (providerId: string) => {
-    setServiceProviders(prevProviders => prevProviders.filter(p => p.id !== providerId));
-  };
-
   const handleAddCommentToDocument = (documentId: string, commentText: string, author: string) => {
     const newComment = {
       id: `COMMENT-${Date.now()}`,
@@ -249,21 +146,24 @@ function App() {
     ));
   };
 
-  const handleUpdatePaymentStatus = (paymentId: string, status: 'Pago' | 'Pendente') => {
-    setPayments(prevPayments => prevPayments.map(p => 
-        p.id === paymentId ? { ...p, status, paymentDate: status === 'Pago' ? new Date().toISOString() : undefined } : p
-    ));
+  const handleSaveUser = (user: Omit<User, 'id' | 'lastLogin'> | User) => {
+    if ('id' in user) {
+      // Update existing user
+      setUsers(prevUsers => prevUsers.map(u => u.id === user.id ? { ...u, ...user } : u));
+    } else {
+      // Add new user
+      const newUser: User = {
+        ...user,
+        id: `USR-${Date.now()}`,
+        lastLogin: new Date().toISOString(),
+      };
+      setUsers(prevUsers => [newUser, ...prevUsers]);
+    }
   };
 
-  const handleAddExpense = (expense: Omit<Expense, 'id'>) => {
-    const newExpense = { ...expense, id: `EXP-${Date.now()}`};
-    setExpenses(prev => [newExpense, ...prev]);
-  }
-
-  const handleAddPayment = (payment: Omit<Payment, 'id'>) => {
-    const newPayment = { ...payment, id: `PAY-${Date.now()}`};
-    setPayments(prev => [newPayment, ...prev]);
-  }
+  const handleDeleteUser = (userId: string) => {
+    setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+  };
 
 
   return (
@@ -272,23 +172,9 @@ function App() {
         services={services}
         onAddService={handleAddService}
         onUpdateService={handleUpdateService}
-        onDeleteService={handleDeleteService}
         clients={clients}
-        onAddClientAndContract={handleClientAndContractAdd}
-        onUpdateClient={handleUpdateClient}
-        onDeleteClient={handleDeleteClient}
         contracts={contracts}
-        onAddContract={handleAddContract}
-        onUpdateContract={handleUpdateContract}
-        onDeleteContract={handleDeleteContract}
         consultants={consultants}
-        onAddConsultant={handleAddConsultant}
-        onUpdateConsultant={handleUpdateConsultant}
-        onDeleteConsultant={handleDeleteConsultant}
-        providers={serviceProviders}
-        onAddProvider={handleAddProvider}
-        onUpdateProvider={handleUpdateProvider}
-        onDeleteProvider={handleDeleteProvider}
         documents={documents}
         onAddCommentToDocument={handleAddCommentToDocument}
         onAddDocument={handleAddDocument}
@@ -303,11 +189,9 @@ function App() {
         onAddLogEntry={handleAddLogEntry}
         onAddLogComment={handleAddLogComment}
         revenues={revenues}
-        expenses={expenses}
-        payments={payments}
-        onUpdatePaymentStatus={handleUpdatePaymentStatus}
-        onAddExpense={handleAddExpense}
-        onAddPayment={handleAddPayment}
+        users={users}
+        onSaveUser={handleSaveUser}
+        onDeleteUser={handleDeleteUser}
       />
     </div>
   );
