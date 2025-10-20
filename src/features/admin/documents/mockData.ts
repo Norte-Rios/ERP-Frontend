@@ -1,0 +1,68 @@
+import { Document } from './types';
+
+export const mockDocuments: Document[] = [
+  {
+    id: 'DOC-001',
+    title: 'Proposta Comercial - Projeto ERP',
+    fileName: 'proposta_erp_v2.pdf',
+    fileType: 'pdf',
+    status: 'Aprovado',
+    direction: 'sent',
+    sender: { name: 'Admin' },
+    recipient: { id: 'C01', name: 'Tech Solutions Ltda.', type: 'Cliente' },
+    sentAt: '2025-09-28T10:00:00Z',
+    history: [
+      { status: 'Enviado', date: '2025-09-28T10:00:00Z' },
+      { status: 'Visualizado', date: '2025-09-28T14:30:00Z' },
+      { status: 'Aprovado', date: '2025-09-29T11:00:00Z' },
+    ],
+    comments: [
+      { author: 'Admin', text: 'Segue a proposta para análise.', date: '2025-09-28T10:00:00Z' },
+      { author: 'Carlos Andrade', text: 'Recebido. Parece ótimo, vamos aprovar.', date: '2025-09-29T10:55:00Z' },
+    ],
+  },
+  {
+    id: 'DOC-002',
+    title: 'Relatório Final - Consultoria SEO',
+    fileName: 'relatorio_seo_final.docx',
+    fileType: 'docx',
+    status: 'Enviado',
+    direction: 'sent',
+    sender: { name: 'Admin' },
+    recipient: { id: 'C02', name: 'Inova Marketing Digital', type: 'Cliente' },
+    sentAt: '2025-10-02T15:20:00Z',
+    history: [{ status: 'Enviado', date: '2025-10-02T15:20:00Z' }],
+    comments: [
+       { author: 'Admin', text: 'Olá Beatriz, segue o relatório final do projeto de SEO.', date: '2025-10-02T15:20:00Z' },
+    ],
+  },
+   {
+    id: 'DOC-003',
+    title: 'Plano de Trabalho Assinado',
+    fileName: 'plano_assinado.pdf',
+    fileType: 'pdf',
+    status: 'Visualizado',
+    direction: 'received',
+    sender: { name: 'Beatriz Lima' },
+    recipient: { id: 'ADM-01', name: 'Admin', type: 'Consultor' },
+    sentAt: '2025-10-01T09:00:00Z',
+    history: [
+        { status: 'Enviado', date: '2025-10-01T09:00:00Z' },
+        { status: 'Visualizado', date: '2025-10-01T11:45:00Z' },
+    ],
+    comments: [],
+  },
+  {
+    id: 'DOC-004',
+    title: 'Nota Fiscal - Outubro',
+    fileName: 'NF_out_2025.pdf',
+    fileType: 'pdf',
+    status: 'Recebido',
+    direction: 'received',
+    sender: { name: 'Alfa Treinamentos' },
+    recipient: { id: 'ADM-01', name: 'Admin', type: 'Prestador' },
+    sentAt: '2025-10-03T11:00:00Z',
+    history: [{ status: 'Recebido', date: '2025-10-03T11:00:00Z' }],
+    comments: [],
+  },
+];

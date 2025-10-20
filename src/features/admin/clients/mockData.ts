@@ -1,0 +1,77 @@
+import { Client } from './types';
+
+// Dados de exemplo para a lista de clientes, agora com CNPJ e IDs de Contratos
+export const mockClients: Client[] = [
+  {
+    id: 'C01',
+    companyName: 'Tech Solutions Ltda.',
+    contactName: 'Carlos Andrade',
+    email: 'carlos.andrade@techsolutions.com',
+    phone: '(11) 98765-4321',
+    status: 'Ativo',
+    registrationDate: '2023-01-15',
+    type: 'Privada',
+    cnpj: '12.345.678/0001-99',
+    address: {
+      street: 'Av. Paulista, 1000',
+      city: 'São Paulo',
+      state: 'SP',
+      zipCode: '01310-100',
+    },
+    contractIds: ['CTR-001'],
+  },
+  {
+    id: 'C02',
+    companyName: 'Secretaria de Educação Municipal',
+    contactName: 'Beatriz Costa',
+    email: 'beatriz.costa@sem.gov.br',
+    phone: '(21) 91234-5678',
+    status: 'Ativo',
+    registrationDate: '2023-03-22',
+    type: 'Pública',
+    cnpj: '98.765.432/0001-11',
+    address: {
+      street: 'Rua da Alfândega, 200',
+      city: 'Rio de Janeiro',
+      state: 'RJ',
+      zipCode: '20070-004',
+    },
+    contractIds: ['CTR-002'],
+  },
+  {
+    id: 'C03',
+    companyName: 'Varejo Global S.A.',
+    contactName: 'Daniel Faria',
+    email: 'daniel.faria@varejoglobal.com',
+    phone: '(31) 99999-8888',
+    status: 'Inativo',
+    registrationDate: '2022-11-10',
+    type: 'Privada',
+    cnpj: '11.222.333/0001-44',
+    address: {
+      street: 'Av. do Contorno, 5000',
+      city: 'Belo Horizonte',
+      state: 'MG',
+      zipCode: '30110-060',
+    },
+    contractIds: ['CTR-003'],
+  },
+  {
+    id: 'C04',
+    companyName: 'Health First Farmacêutica',
+    contactName: 'Fernanda Lima',
+    email: 'fernanda.lima@healthfirst.com',
+    phone: '(41) 98877-6655',
+    status: 'Ativo',
+    registrationDate: '2023-05-30',
+    type: 'Privada',
+    cnpj: '44.555.666/0001-77',
+    address: {
+      street: 'Rua das Flores, 150',
+      city: 'Curitiba',
+      state: 'PR',
+      zipCode: '80020-080',
+    },
+    contractIds: [], // Este cliente ainda não tem contratos
+  },
+];
