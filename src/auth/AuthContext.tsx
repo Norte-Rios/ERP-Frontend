@@ -1,13 +1,17 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios'; // 1. Importar axios
 
-// A interface User será definida pelo backend. Por agora, usamos uma base.
+const API_URL = import.meta.env.VITE_BACKEND_URL;
+
+// 2. Interface User CORRIGIDA
 export interface User {
   id: string;
-  name: string;
+  nome: string; // Corrigido de 'name'
   email: string;
-  role: 'Admin' | 'Consultant' | 'Client' | 'Operational' | 'Admin Master';
-  token: string; // O backend deverá enviar um token JWT
+  // Corrigido para letras minúsculas (como no backend)
+  role: 'admin' | 'consultant' | 'client' | 'operational' | 'admin master';
+  token: string;
 }
 
 interface AuthContextType {
@@ -18,83 +22,97 @@ interface AuthContextType {
   logout: () => void;
 }
 
-// Dados de utilizadores de demonstração
-const mockUsers = {
-  'admin@norterios.com': { id: 'USR-001', name: 'Admin Master', role: 'Admin Master', email: 'admin@norterios.com' },
-  'carlos.silva@consultoria.com': { id: 'CON-001', name: 'Carlos Silva', role: 'Consultant', email: 'carlos.silva@consultoria.com' },
-  'carlos.andrade@techsolutions.com': { id: 'C01', name: 'Carlos Andrade', role: 'Client', email: 'carlos.andrade@techsolutions.com' },
-  'sued.silva@norterios.com': { id: 'USR-003', name: 'Sued Silva', role: 'Operational', email: 'sued.silva@norterios.com' }
-};
-
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true); // Começa true
+  
+  // 3. Estado para corrigir o redirecionamento
+  const [isLoggingIn, setIsLoggingIn] = useState(false); 
+  
   const navigate = useNavigate();
 
-   useEffect(() => {
-    // Simula a verificação do token ao carregar a página
+  // useEffect de carregamento inicial (lê o localStorage)
+  useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        localStorage.removeItem('user'); // Limpa se o JSON for inválido
+      }
     }
-    setLoading(false);
-  }, []);
+    setLoading(false); // Termina o loading inicial
+  }, []); // Array vazio garante que rode só uma vez
 
-  // Esta função irá chamar o backend para fazer o login
-  const login = async (email: string, pass: string) => {
-    console.log("Tentativa de login com:", { email, pass });
-
-    const matchedUser = mockUsers[email];
-
-    // Simulação de validação de senha
-    const isPasswordValid = 
-      (email === 'admin@norterios.com' && pass === 'admin123') ||
-      (email === 'carlos.silva@consultoria.com' && pass === 'consultor123') ||
-      (email === 'carlos.andrade@techsolutions.com' && pass === 'cliente123') ||
-      (email === 'sued.silva@norterios.com' && pass === 'operacional123');
-
-    if (matchedUser && isPasswordValid) {
-      const userData = {
-        ...matchedUser,
-        token: `fake-jwt-for-${matchedUser.id}`
-      };
+  // 4. useEffect que cuida da NAVEGAÇÃO PÓS-LOGIN
+  useEffect(() => {
+    // Só navega se o 'user' existir E se estávamos no processo de login
+    if (user && isLoggingIn) {
+      console.log('useEffect (Navegação): Usuário atualizado. Navegando com role:', user.role);
       
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      const role = user.role.toLowerCase();
 
-      // Redirecionamento baseado no perfil do utilizador
-      switch (userData.role) {
-        case 'Admin':
-        case 'Admin Master':
+      switch (role) {
+        case 'admin':
+        case 'admin master':
           navigate('/');
           break;
-        case 'Consultant':
+        case 'consultant':
           navigate('/consultant/dashboard');
           break;
-        case 'Client':
+        case 'client':
           navigate('/client/dashboard');
           break;
-        case 'Operational':
+        case 'operational':
           navigate('/operational/tasks');
           break;
         default:
           navigate('/');
       }
+      setIsLoggingIn(false); // Reseta o estado
+    }
+  }, [user, isLoggingIn, navigate]); // Dependências
 
-    } else {
+  // 5. Função LOGIN (apenas a versão axios)
+  const login = async (email: string, pass: string) => {
+    console.log("Tentativa de login com:", { email, pass });
+    setLoading(true);
+    setIsLoggingIn(true); // Avisa que estamos iniciando o login
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/login`, {
+        email: email,
+        password: pass,
+      });
+
+      const userData: User = response.data;
+
+      // Apenas atualiza o estado e o localStorage
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // O 'navigate' foi removido daqui (o useEffect cuida disso)
+
+    } catch (error) {
+      console.error('Falha no login:', error);
+      setIsLoggingIn(false); // Reseta se o login falhar
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(error.response.data.message || 'Utilizador ou palavra-passe inválidos.');
+      }
       throw new Error('Utilizador ou palavra-passe inválidos.');
+    } finally {
+      // O setLoading(false) é vital para o ProtectedRoute
+      setLoading(false);
     }
   };
 
-  // Esta função irá limpar os dados do usuário
+  // Esta função está correta
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    setIsLoggingIn(false);
     navigate('/login');
   };
 
@@ -102,12 +120,16 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout }}>
-      {children}
+      {/* Renderiza os filhos SÓ DEPOIS do loading inicial.
+        Isso impede que o AppRoutes tente renderizar
+        antes do 'user' ser carregado do localStorage.
+      */}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
 
-// Hook personalizado para facilitar o uso do contexto
+// Hook personalizado (está correto)
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

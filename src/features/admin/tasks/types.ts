@@ -1,10 +1,14 @@
-// Define a estrutura de uma etiqueta (tag)
-export interface Tag {
+export interface Etiqueta {
   id: string;
-  name: string;
-  color: string; // Cor de fundo da etiqueta, ex: 'bg-blue-200 text-blue-800'
+  nome: string;
+  color: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
+export type Tag = Etiqueta;
+
+// ... resto dos types permanecem iguais
 // Define um comentário dentro de uma tarefa
 export interface Comment {
   author: string;

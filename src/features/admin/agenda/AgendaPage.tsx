@@ -2,7 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, CheckCircle, Video } from 'lucide-react';
 import { Service } from '../services/types';
 import { Task, CalendarEvent } from './types';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
+
+const API_URL = import.meta.env.VITE_BACKEND_URL 
 
 // Funções auxiliares para manipulação de datas
 const getWeekDays = (date: Date) => {
@@ -17,7 +19,7 @@ const getWeekDays = (date: Date) => {
   return week;
 };
 
-// Componente para o Modal de Novo Evento
+// COMPONENTE MODAL - DESIGN ORIGINAL
 const NewEventModal = ({ isOpen, onClose, onSave, selectedDate }) => {
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState(selectedDate);
@@ -75,8 +77,6 @@ const NewEventModal = ({ isOpen, onClose, onSave, selectedDate }) => {
       
       let locationOrLink = location;
       if (addMeet) {
-        // Futuramente, a chamada à API para criar o link do Meet viria aqui
-        // Por agora, vamos simular um link.
         locationOrLink = `https://meet.google.com/gen-${Date.now()}`;
         console.log("Link do Meet gerado (simulação):", locationOrLink);
       }
@@ -303,11 +303,55 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [googleId, setGoogleId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // ✅ CARREGAR EVENTOS DO GOOGLE AUTOMATICAMENTE
+  useEffect(() => {
+    if (isAuthenticated && googleId) {
+      loadEventsFromGoogle();
+    }
+  }, [isAuthenticated, googleId]);
+
+  // ✅ FUNÇÃO PARA CARREGAR EVENTOS DO GOOGLE
+  const loadEventsFromGoogle = async () => {
+    if (!googleId) return;
+
+    try {
+      console.log('📥 Carregando eventos do Google...');
+      const response = await fetch(`${API_URL}/google/events/${googleId}`);
+      
+      if (!response.ok) {
+        throw new Error('Falha ao carregar eventos');
+      }
+      
+      const googleEvents = await response.json();
+      console.log('✅ Eventos carregados:', googleEvents);
+      
+      // TRANSFORMA eventos do Google em Tasks
+      const newTasks: Task[] = googleEvents.map((event: any) => ({
+        id: event.id,
+        title: event.summary,
+        startDate: event.start.dateTime?.split('T')[0] || event.start.date,
+        endDate: event.end.dateTime?.split('T')[0] || event.end.date,
+        startTime: event.start.dateTime ? event.start.dateTime.split('T')[1].substring(0, 5) : '09:00',
+        endTime: event.end.dateTime ? event.end.dateTime.split('T')[1].substring(0, 5) : '10:00',
+        type: 'Reunião',
+        locationOrLink: event.location || '',
+        participants: event.attendees?.map((a: any) => a.email) || [],
+      }));
+      
+      setTasks(newTasks);
+    } catch (error) {
+      console.error('Erro ao carregar eventos:', error);
+      setAuthError('Erro ao carregar eventos do Google Calendar');
+    }
+  };
+
+  // AUTENTICAÇÃO GOOGLE
   const handleAuthentication = () => {
     setAuthError(null);
-    const popup = window.open('http://localhost:3000/google/auth', 'authWindow', 'width=500,height=600');
+    const popup = window.open(`${API_URL}/google/auth`, 'authWindow', 'width=500,height=600');
 
     if (!popup) {
       setAuthError('Não foi possível abrir o popup de autenticação. Verifique as configurações do navegador.');
@@ -316,14 +360,16 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
 
     const messageListener = (event: MessageEvent) => {
       console.log('MENSAGEM RECEBIDA:', event);
-      if (event.origin !== 'http://localhost:3000') {
+      if (event.origin !== `${API_URL}`) {
         console.warn('Mensagem ignorada de origem desconhecida:', event.origin);
         return;
       }
 
-      if (event.data === 'auth_success') {
-        console.log('Autenticação via pop-up bem-sucedida!');
+      const authData = event.data;
+      if (authData.status === 'auth_success' && authData.googleId) {
+        console.log('Autenticação via pop-up bem-sucedida! Google ID:', authData.googleId);
         setIsAuthenticated(true);
+        setGoogleId(authData.googleId);
         popup.close();
         cleanup();
       } else {
@@ -340,7 +386,6 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
       }
     }, 500);
 
-    // Timeout após 2 minutos
     setTimeout(() => {
       if (!popup.closed) {
         popup.close();
@@ -355,6 +400,36 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
     };
 
     window.addEventListener('message', messageListener);
+  };
+
+  // SALVAR EVENTO - INTEGRADO
+  const handleSaveEvent = async (eventData: Omit<Task, 'id'>) => {
+    if (!googleId) {
+      throw new Error('Usuário não autenticado. Conecte-se ao Google primeiro.');
+    }
+
+    console.log('Enviando dados para o backend:', eventData);
+    console.log('Google ID:', googleId);
+
+    const response = await fetch(`${API_URL}/google/create-event/${googleId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(eventData),
+    });
+
+    if (!response.ok) {
+      const errorResult = await response.json();
+      console.error('Erro do servidor:', errorResult);
+      throw new Error(errorResult.message || 'Falha ao criar o evento.');
+    }
+
+    const createdEventFromGoogle = await response.json();
+    console.log('Evento criado com sucesso via Google API:', createdEventFromGoogle);
+
+    
+    await loadEventsFromGoogle();
   };
 
   const events: CalendarEvent[] = useMemo(() => {
@@ -402,33 +477,6 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
   const handleOpenModal = (date: Date) => {
     setSelectedDate(date.toISOString().split('T')[0]);
     setIsModalOpen(true);
-  };
-
-  const handleSaveEvent = async (eventData: Omit<Task, 'id'>) => {
-    console.log('Enviando dados para o backend:', eventData);
-    const response = await fetch('http://localhost:3000/google/create-event', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(eventData),
-    });
-
-    if (!response.ok) {
-      const errorResult = await response.json();
-      console.error('Erro do servidor:', errorResult);
-      throw new Error(errorResult.message || 'Falha ao criar o evento.');
-    }
-
-    const createdEventFromGoogle = await response.json();
-    console.log('Evento criado com sucesso via Google API:', createdEventFromGoogle);
-
-    const newTask: Task = {
-      ...eventData,
-      id: createdEventFromGoogle.id || `task-${Date.now()}`,
-    };
-
-    setTasks((prevTasks) => [...prevTasks, newTask]);
   };
 
   const handlePrev = () => {
@@ -631,6 +679,11 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
               <div className="flex items-center gap-2 text-green-600 font-semibold">
                 <CheckCircle size={20} />
                 <span>Conectado ao Google</span>
+                {googleId && (
+                  <span className="text-xs bg-green-100 px-2 py-1 rounded-full">
+                    {googleId.slice(0, 8)}...
+                  </span>
+                )}
               </div>
             ) : (
               <button

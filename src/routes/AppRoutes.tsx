@@ -148,7 +148,7 @@ const AppRoutes = (props: AppRoutesProps) => {
         {/* Passamos todas as props para as rotas aninhadas através do contexto do Outlet */}
         <Route element={<Outlet context={props} />}>
             {/* Rotas do Administrador */}
-            {user && (user.role === 'Admin' || user.role === 'Admin Master') && (
+            {user && (user.role === 'admin' || user.role === 'admin master') && (
                 <Route path="/" element={<MainLayout />}>
                   <Route index element={<Navigate to="/tasks" replace />} />
                    <Route path="tasks" element={<TaskBoardPage initialBoard={props.taskBoard} consultants={props.consultants} onUpdateTaskBoard={props.onUpdateTaskBoard} onUpdateTask={props.onUpdateTask} onDeleteTask={props.onDeleteTask} onAddTaskComment={props.onAddTaskComment} onUpdateTags={props.onUpdateTags} />} />
@@ -159,7 +159,7 @@ const AppRoutes = (props: AppRoutesProps) => {
             )}
 
             {/* Rotas do Consultor */}
-            {user && user.role === 'Consultant' && currentConsultant && (
+            {user && user.role === 'consultant' && currentConsultant && (
                 <Route path="/consultant" element={<ConsultantLayout />}>
                     <Route
                       path="dashboard"
@@ -218,7 +218,7 @@ const AppRoutes = (props: AppRoutesProps) => {
             )}
 
             {/* Rotas do Cliente */}
-            {user && user.role === 'Client' && currentClient && (
+            {user && user.role === 'client' && currentClient && (
                 <Route path="/client" element={<ClientLayout />}>
                     <Route
                       path="dashboard"
@@ -256,7 +256,7 @@ const AppRoutes = (props: AppRoutesProps) => {
             )}
 
             {/* Rotas Operacionais */}
-            {user && user.role === 'Operational' && operationalUser && (
+            {user && user.role === 'operational' && operationalUser && (
                 <Route path="/operational" element={<OperationalLayout />}>
                     <Route index element={<Navigate to="tasks" replace />} />
                     <Route
