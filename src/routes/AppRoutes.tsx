@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
-
+import { ProtectedRoute } from '../auth/AuthContext';
 // Auth
 import { useAuth } from '../auth/AuthContext';
-import ProtectedRoute from './ProtectedRoute.tsx';
+
 import LoginPage from '../auth/LoginPage';
 
 // Layouts
@@ -142,9 +142,15 @@ const AppRoutes = (props: AppRoutesProps) => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      
+      <Route
+        element={
+          <ProtectedRoute>
+            <Outlet context={props} />
+          </ProtectedRoute>
+        }
+      >
       {/* Rotas Protegidas */}
-      <Route element={<ProtectedRoute />}>
+      
         {/* Passamos todas as props para as rotas aninhadas através do contexto do Outlet */}
         <Route element={<Outlet context={props} />}>
             {/* Rotas do Administrador */}

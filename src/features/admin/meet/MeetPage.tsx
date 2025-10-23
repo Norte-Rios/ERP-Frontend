@@ -1,13 +1,45 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Video, UserPlus, Search, X } from 'lucide-react';
-import { CalendarEvent } from '../agenda/types';
+import { CalendarEvent } from '../agenda/types'; // Assumindo que CalendarEvent tem campos compatíveis
+import axios from 'axios'; // Assumindo uso de axios
 
-interface MeetPageProps {
-  events: CalendarEvent[];
+const API_URL = import.meta.env.VITE_BACKEND_URL; // Do .env
+const API_MEET_URL = `${API_URL}/google`;
+
+// Interface para Meet do backend (ajuste conforme sua entidade)
+interface Meet {
+  id: string;
+  titulo: string;
+  data: string; // YYYY-MM-DD
+  horarioIni: string; // HH:MM
+  horarioFim: string; // HH:MM
+  googleMeetLink: string;
+  googleId: string;
+  spaceName: string | null;
+  // Outros campos se houver
 }
 
-// Modal para Agendar Reunião
-const ScheduleMeetingModal = ({ isOpen, onClose, onSave }) => {
+// Interface para CreateMeetDto (para POST) - ADICIONADO participants como array obrigatório
+interface CreateMeetDto {
+  titulo: string;
+  data: string;
+  horarioIni: string;
+  horarioFim: string;
+  participants: string[]; // Array de emails - obrigatório no DTO do backend
+}
+
+// Modal para Agendar Reunião (integrado ao POST /create_meet/:googleId)
+const ScheduleMeetingModal = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  loading 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSave: (data: CreateMeetDto) => Promise<void>; 
+  loading: boolean; 
+}) => {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState('09:00');
@@ -28,21 +60,36 @@ const ScheduleMeetingModal = ({ isOpen, onClose, onSave }) => {
     setParticipants(participants.filter(p => p !== participantToRemove));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) {
       alert('Por favor, insira um título para a reunião.');
       return;
     }
-    // Aqui seria a lógica para salvar/enviar os dados da reunião
-    console.log({
-      title,
-      date,
-      startTime,
-      endTime,
-      participants
-    });
-    alert('Reunião agendada com sucesso! (Simulação)');
-    onClose();
+    // ✅ Validação para participants (backend espera array, mesmo vazio)
+    if (participants.length === 0) {
+      alert('Adicione pelo menos um participante (e-mail).');
+      return;
+    }
+    try {
+      const meetingData: CreateMeetDto = {
+        titulo: title,
+        data: date,
+        horarioIni: startTime,
+        horarioFim: endTime,
+        participants, // ✅ Incluído: Array de emails (obrigatório no DTO)
+      };
+      await onSave(meetingData);
+      // Reset form
+      setTitle('');
+      setDate(new Date().toISOString().split('T')[0]);
+      setStartTime('09:00');
+      setEndTime('10:00');
+      setParticipants([]);
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar reunião:', error);
+      alert('Erro ao agendar reunião. Tente novamente.');
+    }
   };
 
   return (
@@ -74,7 +121,7 @@ const ScheduleMeetingModal = ({ isOpen, onClose, onSave }) => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Participantes</label>
+            <label className="block text-sm font-medium text-gray-700">Participantes (Obrigatório)</label>
             <div className="flex items-center gap-2">
               <input
                 type="email"
@@ -93,30 +140,132 @@ const ScheduleMeetingModal = ({ isOpen, onClose, onSave }) => {
                   <button type="button" onClick={() => handleRemoveParticipant(p)} className="text-red-500 hover:text-red-700"><X size={16} /></button>
                 </div>
               ))}
+              {participants.length === 0 && (
+                <p className="text-sm text-gray-500 mt-1">Adicione pelo menos um e-mail válido.</p>
+              )}
             </div>
           </div>
         </div>
         <div className="mt-8 flex justify-end gap-4">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-          <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold">Salvar Reunião</button>
+          <button onClick={onClose} disabled={loading} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+          <button onClick={handleSave} disabled={loading || participants.length === 0} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold disabled:opacity-50">
+            {loading ? 'Salvando...' : 'Salvar Reunião'}
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-
-const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
+const MeetPage: React.FC = () => {
+  const [meets, setMeets] = useState<Meet[]>([]); // State para Meet[] do DB
+  const [events, setEvents] = useState<CalendarEvent[]>([]); // Se precisar mapear para CalendarEvent
   const [link, setLink] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const itemsPerPage = 10;
 
+  // ✅ Busca googleId do localStorage
+  const googleId = localStorage.getItem('googleId');
+
+  // ✅ Fetch de meets salvos no DB (usa GET /meets/:googleId)
+  useEffect(() => {
+    const fetchMeets = async () => {
+      if (!googleId) {
+        setError('Google ID não encontrado. Conecte-se ao Google.');
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await axios.get(`${API_MEET_URL}/meets/${googleId}`);
+        const fetchedMeets: Meet[] = response.data; // Backend retorna Meet[]
+        
+        // ✅ Mapeia Meet[] para CalendarEvent[] (se necessário para a tabela; ajuste campos)
+        const mappedEvents: CalendarEvent[] = fetchedMeets.map((meet) => ({
+          id: meet.id,
+          title: meet.titulo,
+          start: new Date(`${meet.data}T${meet.horarioIni}`), // Combina data + hora
+          end: new Date(`${meet.data}T${meet.horarioFim}`),
+          type: 'task' as const, // Ou 'meet' se custom
+          color: 'green', // Cor fixa para meets
+          data: {
+            type: 'Reunião',
+            locationOrLink: meet.googleMeetLink, // Para botão "Participar"
+            // Outros campos do Meet se precisar
+          },
+        }));
+        
+        setMeets(fetchedMeets); // Armazena raw para uso futuro
+        setEvents(mappedEvents); // Para tabela que espera CalendarEvent
+      } catch (err: any) {
+        console.error('Erro ao buscar meets do banco:', err);
+        setError(err.response?.data?.message || 'Erro ao carregar meets salvos.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMeets();
+  }, [googleId]);
+
+  // ✅ Refetch após criar
+  const refetchMeets = () => {
+    // Re-chama fetch
+    const fetchMeets = async () => {
+      if (!googleId) return;
+      try {
+        const response = await axios.get(`${API_MEET_URL}/meets/${googleId}`);
+        const fetchedMeets: Meet[] = response.data;
+        const mappedEvents: CalendarEvent[] = fetchedMeets.map((meet) => ({
+          id: meet.id,
+          title: meet.titulo,
+          start: new Date(`${meet.data}T${meet.horarioIni}`),
+          end: new Date(`${meet.data}T${meet.horarioFim}`),
+          type: 'task' as const,
+          color: 'green',
+          data: {
+            type: 'Reunião',
+            locationOrLink: meet.googleMeetLink,
+          },
+        }));
+        setMeets(fetchedMeets);
+        setEvents(mappedEvents);
+      } catch (err) {
+        console.error('Erro ao refetch meets:', err);
+      }
+    };
+    fetchMeets();
+  };
+
+  // ✅ Criação de meet (POST /create_meet/:googleId) - CORRIGIDO ROTA PARA UNDERSCORE
+  const handleSaveMeeting = async (meetingData: CreateMeetDto) => {
+    if (!googleId) {
+      throw new Error('Google ID não encontrado.');
+    }
+    try {
+      setLoading(true);
+      // ✅ CORRIGIDO: Rota com underscore para combinar com backend (@Post('create_meet/:googleId'))
+      await axios.post(`${API_MEET_URL}/create-meet/${googleId}`, meetingData);
+      
+      refetchMeets(); // Atualiza lista do DB
+    } catch (err: any) {
+      console.error('Erro ao criar meet:', err);
+      throw new Error(err.response?.data?.message || 'Erro ao salvar meet no banco.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Filtragem e paginação (usa mapped events)
   const meetings = useMemo(() =>
     events.filter(event =>
-      (event.type === 'task' && event.data.type === 'Reunião') ||
-      (event.title.toLowerCase().includes('reunião'))
+      (event.type === 'task' && (event.data as any).type === 'Reunião') ||
+      event.title.toLowerCase().includes('reunião')
     ).filter(event =>
       event.title.toLowerCase().includes(searchTerm.toLowerCase())
     ), [events, searchTerm]);
@@ -142,11 +291,21 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
     }
   };
 
-  const handleSaveMeeting = (meetingData) => {
-    // Lógica para adicionar a nova reunião à lista principal (será implementada com a integração)
-    console.log("Nova reunião para salvar:", meetingData);
-  };
+  // ✅ Loading e Error
+  if (loading) {
+    return <div className="container mx-auto p-8 text-center">Carregando meets do banco...</div>;
+  }
 
+  if (error) {
+    return (
+      <div className="container mx-auto p-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <strong>Erro:</strong> {error}
+          <button onClick={() => window.location.reload()} className="ml-4 text-red-700 underline">Recarregar</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto space-y-8">
@@ -154,10 +313,12 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
         isOpen={isScheduleModalOpen}
         onClose={() => setIsScheduleModalOpen(false)}
         onSave={handleSaveMeeting}
+        loading={loading}
       />
-      <h1 className="text-2xl font-bold text-gray-800">Google Meet</h1>
+      <h1 className="text-2xl font-bold text-gray-800">Google Meet
+      </h1>
 
-      {/* Cartões de Ação */}
+      {/* Cartões de Ação (sem mudanças) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><UserPlus /> Participar de uma reunião</h2>
@@ -179,16 +340,16 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
                 <div className="p-3 bg-indigo-100 rounded-full"><Video className="h-6 w-6 text-indigo-600" /></div>
                 <div>
                     <h2 className="font-bold text-gray-800">Agendar Nova Reunião</h2>
-                    <p className="text-sm text-gray-600 mt-1">Isto abrirá a sua agenda para criar um novo evento.</p>
+                    <p className="text-sm text-gray-600 mt-1"></p>
                 </div>
             </div>
         </div>
       </div>
 
-      {/* Lista de Reuniões Agendadas */}
+      {/* Lista de Reuniões Agendadas (usa mapped events de meets do DB) */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-700">Reuniões Agendadas</h2>
+          <h2 className="text-xl font-semibold text-gray-700">Reuniões Salvas no Banco</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -208,7 +369,7 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
                 <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase">Título</th>
                 <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase">Data</th>
                 <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase">Horário</th>
-                <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100"></th>
+                <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase"></th>
               </tr>
             </thead>
             <tbody>
@@ -237,7 +398,7 @@ const MeetPage: React.FC<MeetPageProps> = ({ events }) => {
               })}
               {paginatedMeetings.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-center py-10 text-gray-500">Nenhuma reunião encontrada.</td>
+                  <td colSpan={4} className="text-center py-10 text-gray-500">Nenhum meet salvo encontrado.</td>
                 </tr>
               )}
             </tbody>

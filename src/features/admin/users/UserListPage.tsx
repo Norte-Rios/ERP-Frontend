@@ -1,27 +1,93 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { User } from './types';
 import UserModal from './UserModal';
+import axios from 'axios'; // Importe axios para API calls
+
+const API_URL = import.meta.env.VITE_BACKEND_URL; // Assumindo que você tem isso no .env para base URL
 
 interface UserListPageProps {
-  users: User[];
-  onSaveUser: (user: Omit<User, 'id' | 'lastLogin'> | User) => void;
-  onDeleteUser: (userId: string) => void;
+  // Removido props mocks; agora fetcha do backend
 }
 
 const getStatusClass = (status: User['status']) => {
   switch (status) {
-    case 'Active': return 'bg-green-100 text-green-800';
-    case 'Inactive': return 'bg-red-100 text-red-800';
+    case 'active': return 'bg-green-100 text-green-800';
+    case 'inactive': return 'bg-red-100 text-red-800';
     default: return 'bg-gray-100 text-gray-800';
   }
 };
 
-
-const UserListPage: React.FC<UserListPageProps> = ({ users, onSaveUser, onDeleteUser }) => {
+const UserListPage: React.FC<UserListPageProps> = () => {
+  const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ✅ Fetch de todos usuários (GET /users)
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await axios.get(`${API_URL}/users`);
+        setUsers(response.data); // Backend retorna User[]
+      } catch (err: any) {
+        console.error('Erro ao buscar usuários:', err);
+        setError(err.response?.data?.message || 'Erro ao carregar usuários.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  // ✅ Salvar/Atualizar usuário (POST /users ou PATCH /users/:id)
+  const handleSaveUser = async (userData: Omit<User, 'id' | 'lastLogin'> | User) => {
+    try {
+      setLoading(true);
+      setError(null);
+      if ('id' in userData) {
+        // Update: PATCH /users/:id
+        await axios.patch(`${API_URL}/users/${userData.id}`, userData);
+      } else {
+        // Create: POST /users
+        await axios.post(`${API_URL}/users`, userData);
+      }
+      // Refetch após salvar
+      const response = await axios.get(`${API_URL}/users`);
+      setUsers(response.data);
+      handleCloseModal();
+    } catch (err: any) {
+      console.error('Erro ao salvar usuário:', err);
+      setError(err.response?.data?.message || 'Erro ao salvar usuário.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Deletar usuário (DELETE /users/:id)
+  const handleConfirmDelete = async () => {
+    if (userToDelete) {
+      try {
+        setLoading(true);
+        setError(null);
+        await axios.delete(`${API_URL}/users/${userToDelete.id}`);
+        // Refetch após deletar
+        const response = await axios.get(`${API_URL}/users`);
+        setUsers(response.data);
+        setUserToDelete(null);
+      } catch (err: any) {
+        console.error('Erro ao deletar usuário:', err);
+        setError(err.response?.data?.message || 'Erro ao deletar usuário.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   const handleOpenAddModal = () => {
     setUserToEdit(null);
@@ -38,19 +104,28 @@ const UserListPage: React.FC<UserListPageProps> = ({ users, onSaveUser, onDelete
     setUserToEdit(null);
   };
 
-  const handleConfirmDelete = () => {
-    if (userToDelete) {
-      onDeleteUser(userToDelete.id);
-      setUserToDelete(null);
-    }
-  };
+  // ✅ Loading e Error States
+  if (loading) {
+    return <div className="container mx-auto p-8 text-center">Carregando usuários...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <strong>Erro:</strong> {error}
+          <button onClick={() => window.location.reload()} className="ml-4 text-red-700 underline">Recarregar</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto">
       <UserModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSave={onSaveUser}
+        onSave={handleSaveUser}
         userToEdit={userToEdit}
       />
        {/* Modal de Confirmação de Exclusão */}
@@ -59,7 +134,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ users, onSaveUser, onDelete
           <div className="bg-white p-8 rounded-lg shadow-2xl max-w-sm w-full">
             <h3 className="text-2xl font-bold text-gray-800">Confirmar Exclusão</h3>
             <p className="text-gray-600 mt-4">
-              Tem a certeza de que deseja apagar o utilizador "{userToDelete.name}"? Esta ação não pode ser desfeita.
+              Tem a certeza de que deseja apagar o utilizador "{userToDelete.nome}"? Esta ação não pode ser desfeita.
             </p>
             <div className="mt-6 flex justify-end gap-4">
               <button
@@ -104,7 +179,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ users, onSaveUser, onDelete
             {(users || []).map((user) => (
               <tr key={user.id} className="hover:bg-gray-50">
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap font-medium">{user.name}</p>
+                  <p className="text-gray-900 whitespace-no-wrap font-medium">{user.nome}</p>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                   <p className="text-gray-900 whitespace-no-wrap">{user.email}</p>

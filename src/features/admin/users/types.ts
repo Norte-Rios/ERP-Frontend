@@ -1,8 +1,8 @@
 export interface User {
   id: string;
-  name: string;
+  nome: string;
   email: string;
-  role: 'Admin Master' | 'Admin' | 'Operational' | 'Consultant' | 'Client';
-  status: 'Active' | 'Inactive';
+  role: 'admin master' | 'Admin' | 'Operational' | 'Consultant' | 'Client';
+  status: 'ativo' | 'inativo';
   lastLogin: string;
 }

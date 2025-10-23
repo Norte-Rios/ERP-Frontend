@@ -1,7 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
+
 import { ChevronLeft, ChevronRight, X, CheckCircle, Video } from 'lucide-react';
+
 import { Service } from '../services/types';
+
 import { Task, CalendarEvent } from './types';
+
 import { Link, useOutletContext } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL 
@@ -306,6 +310,15 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
   const [googleId, setGoogleId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // ✅ CARREGAR googleId DO localStorage AO INICIAR
+  useEffect(() => {
+    const storedGoogleId = localStorage.getItem('googleId');
+    if (storedGoogleId) {
+      setGoogleId(storedGoogleId);
+      setIsAuthenticated(true);
+    }
+  }, []);
+
   // ✅ CARREGAR EVENTOS DO GOOGLE AUTOMATICAMENTE
   useEffect(() => {
     if (isAuthenticated && googleId) {
@@ -370,6 +383,8 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
         console.log('Autenticação via pop-up bem-sucedida! Google ID:', authData.googleId);
         setIsAuthenticated(true);
         setGoogleId(authData.googleId);
+        // ✅ ARMAZENAR googleId NO localStorage
+        localStorage.setItem('googleId', authData.googleId);
         popup.close();
         cleanup();
       } else {
@@ -400,6 +415,15 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
     };
 
     window.addEventListener('message', messageListener);
+  };
+
+  // ✅ FUNÇÃO PARA DESCONECTAR (OPCIONAL, MAS RECOMENDADA)
+  const handleDisconnect = () => {
+    setIsAuthenticated(false);
+    setGoogleId(null);
+    localStorage.removeItem('googleId');
+    setTasks([]); // Limpa tarefas locais
+    setAuthError(null);
   };
 
   // SALVAR EVENTO - INTEGRADO
@@ -684,6 +708,13 @@ const AgendaPage: React.FC<AgendaPageProps> = ({ services }) => {
                     {googleId.slice(0, 8)}...
                   </span>
                 )}
+                {/* ✅ BOTÃO PARA DESCONECTAR (OPCIONAL, MAS ÚTIL) */}
+                <button
+                  onClick={handleDisconnect}
+                  className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                >
+                  Desconectar
+                </button>
               </div>
             ) : (
               <button
