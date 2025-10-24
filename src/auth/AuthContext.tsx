@@ -8,7 +8,7 @@ export interface User {
   id: string;
   nome: string;
   email: string;
-  role: 'admin' | 'consultant' | 'client' | 'operational' | 'admin master';
+  role: 'admin' | 'consultant' | 'client' | 'operational' | 'operacional' | 'admin master' | 'admin comum';
   token: string;
 }
 
@@ -44,12 +44,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ INTERCEPTOR 401 (logout automático se token inválido)
+  // ✅ INTERCEPTOR 401 (logout automático se token inválido, mas com log para debug)
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (r) => r,
       (err) => {
         if (err.response?.status === 401 && window.location.pathname !== '/login') {
+          console.warn('401 detectado na URL:', err.config?.url, ' - Fazendo logout automático');
           logout();
         }
         return Promise.reject(err);
@@ -71,14 +72,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (user && isLoggingIn) {
       const role = user.role.toLowerCase();
+      console.log('Redirecionando para role:', role); // ✅ LOG PARA DEBUG
       const map: Record<string, string> = {
         admin: '/',
+        'admin comum': '/',
         'admin master': '/',
         consultant: '/consultant/dashboard',
         client: '/client/dashboard',
-        operational: '/operational/tasks',
+        operational: '/operational',
+        operacional: '/operational', // Adicionado para cobrir variação em português
       };
-      navigate(map[role] ?? '/');
+      const target = map[role] ?? '/';
+      console.log('Destino calculado:', target); // ✅ LOG PARA DEBUG
+      navigate(target);
       setIsLoggingIn(false);
     }
   }, [user, isLoggingIn, navigate]);
@@ -92,6 +98,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password: pass,
       });
+      console.log('Dados do usuário do backend:', data); // ✅ LOG PARA DEBUG (verifique o 'role' exato aqui)
       setUser(data);
       localStorage.setItem('user', JSON.stringify(data));
       console.log('✅ Login bem-sucedido:', data.email);
@@ -125,15 +132,20 @@ export const useAuth = () => {
   return ctx;
 };
 
-export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+export const ProtectedRoute = ({ allowedRoles = [], children }: { allowedRoles?: string[]; children: React.ReactNode }) => {
+  const { isAuthenticated, user } = useAuth();
   const location = useLocation();
 
-  console.log('ProtectedRoute: isAuthenticated =', isAuthenticated, 'location =', location.pathname); // ✅ LOG PARA DEBUG
+  console.log('ProtectedRoute: isAuthenticated =', isAuthenticated, 'user.role =', user?.role, 'location =', location.pathname); // ✅ LOG PARA DEBUG
 
   if (!isAuthenticated) {
     console.log('🔒 Redirecionando para /login de', location.pathname); // ✅ LOG PARA DEBUG
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role.toLowerCase())) {
+    console.warn('Acesso negado para role:', user.role, 'na rota:', location.pathname); // ✅ LOG PARA DEBUG
+    return <Navigate to="/" replace />; // Ou para uma página de erro 403
   }
 
   return <>{children}</>;

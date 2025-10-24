@@ -182,7 +182,7 @@ const MeetPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await axios.get(`${API_MEET_URL}/meets/${googleId}`);
+        const response = await axios.get(`${API_MEET_URL}/meets`);
         const fetchedMeets: Meet[] = response.data; // Backend retorna Meet[]
         
         // ✅ Mapeia Meet[] para CalendarEvent[] (se necessário para a tabela; ajuste campos)

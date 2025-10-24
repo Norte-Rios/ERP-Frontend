@@ -97,7 +97,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
             <select id="role" name="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full input-style">
               {/* Os valores aqui devem corresponder exatamente aos permitidos na sua interface User['role'] */}
               <option value="admin master">Admin Master</option>
-              <option value="admin">Admin</option> {/* Corrigido de 'admin comum' */}
+              <option value="admin comum">Admin</option> {/* Corrigido de 'admin comum' */}
               <option value="operational">Operational</option>
               <option value="consultant">Consultant</option>
               <option value="client">Client</option>

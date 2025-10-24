@@ -92,7 +92,7 @@ const AppRoutes = (props: AppRoutesProps) => {
   // Encontrar os dados do utilizador atual com base no seu ID
   const currentConsultant = props.consultants.find(c => c.contact.email === user?.email);
   const currentClient = props.clients.find(c => c.email === user?.email);
-  const operationalUser = props.users.find(u => u.email === user?.email && u.role === 'Operational');
+  
 
 
   // Dados filtrados para o Consultor
@@ -262,16 +262,20 @@ const AppRoutes = (props: AppRoutesProps) => {
             )}
 
             {/* Rotas Operacionais */}
-            {user && user.role === 'operational' && operationalUser && (
+            {/* Rotas Operacionais */}
+              {user && user.role === 'operational' && (
                 <Route path="/operational" element={<OperationalLayout />}>
-                    <Route index element={<Navigate to="tasks" replace />} />
-                    <Route
-                      path="tasks"
-                      element={<OperationalTasksPage
+                  <Route index element={<Navigate to="tasks" replace />} />
+                  <Route
+                    path="tasks"
+                    element={
+                      <OperationalTasksPage
                         taskBoard={props.taskBoard}
-                        currentUser={operationalUser}
-                      />}
-                    />
+                        currentUser={user}
+                      />
+                    }
+                  />
+            
                     <Route
                       path="agenda"
                       element={<AgendaPage services={props.services} />}
