@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { ChevronDown, CheckSquare, LogOut, Calendar, Video, Users } from 'lucide-react';
+import { ChevronDown, CheckSquare, LogOut, Calendar, Video, Users, Home, Briefcase } from 'lucide-react'; // Adicionado Home e Briefcase
 
 const Sidebar = () => {
   // Estado para controlar qual menu está aberto
-  const [openMenu, setOpenMenu] = useState<string | null>('operacional');
+  const [openMenu, setOpenMenu] = useState<string | null>(null); // ALTERADO: Começa fechado
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-brand-green-light/50 hover:text-white rounded-md transition-colors duration-200 ${
@@ -37,7 +37,13 @@ const Sidebar = () => {
         <img src="/norte-logo.png" alt="Logótipo Norte Rios" className="h-16 mx-auto" />
       </div>
       <nav className="flex-1 px-4 py-4 space-y-2">
-        
+
+        {/* ALTERAÇÃO: Link direto para o Dashboard adicionado */}
+        <NavLink to="/dashboard" end className={navLinkClass}>
+          <Home className="mr-3 h-5 w-5" />
+          Dashboard
+        </NavLink>
+
         {/* Grupo Operacional */}
         <SubMenu title="Operacional" name="operacional" isOpen={openMenu === 'operacional'} setOpen={setOpenMenu}>
             <NavLink to="/tasks" className={navLinkClass}>
@@ -53,28 +59,33 @@ const Sidebar = () => {
               Meet
             </NavLink>
         </SubMenu>
-        
-        {/* Grupo Cadastros */}
+
+        {/* Grupo Cadastros - ALTERADO: Removidos Clientes e Consultores */}
         <SubMenu title="Cadastros" name="cadastros" isOpen={openMenu === 'cadastros'} setOpen={setOpenMenu}>
             <NavLink to="/users" className={navLinkClass}>
               <Users className="mr-3 h-5 w-5" />
               Usuários
             </NavLink>
+             {/* Adicionar outros links de cadastro aqui */}
         </SubMenu>
 
+        {/* Outros Grupos (Ex: Financeiro, Documentos, Contratos) */}
+        {/* Adicione SubMenus ou NavLinks diretos conforme necessário */}
+
       </nav>
-      
+
       {/* Perfil do Utilizador e Sair */}
       <div className="px-4 py-4 border-t border-brand-green-light/30 mt-auto">
         <div className="flex items-center gap-3 mb-4 px-2">
-            <img 
-                src="https://i.pravatar.cc/150?u=a042581f4e29026704d" 
+            <img
+                src="https://i.pravatar.cc/150?u=a042581f4e29026704d"
                 alt="Avatar do Utilizador"
                 className="h-10 w-10 rounded-full"
             />
             <div>
-                <p className="font-semibold text-sm text-white">Admin Master</p>
-                <p className="text-xs text-gray-300">admin.master@norterios.com</p>
+                {/* Idealmente buscar o nome/email do usuário logado */}
+                <p className="font-semibold text-sm text-white">Admin</p>
+                <p className="text-xs text-gray-300">admin@exemplo.com</p>
             </div>
         </div>
         <button className="w-full text-left flex items-center px-4 py-3 text-gray-300 hover:bg-brand-green-light/50 hover:text-white rounded-md transition-colors duration-200">

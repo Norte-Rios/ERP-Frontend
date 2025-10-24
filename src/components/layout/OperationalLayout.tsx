@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { CheckSquare, LogOut, Bell, Sun, Calendar, Video } from 'lucide-react';
+import { CheckSquare, LogOut, Bell, Sun, Calendar, Video, Home } from 'lucide-react'; // Home já estava importado
 
 // Componente da Barra Lateral Operacional
 const OperationalSidebar = () => {
@@ -15,6 +15,13 @@ const OperationalSidebar = () => {
         <img src="/norte-logo.png" alt="Logótipo Norte Rios" className="h-16 mx-auto" />
       </div>
       <nav className="flex-1 px-4 py-4 space-y-2">
+        
+        {/* ALTERAÇÃO: Link direto para o Dashboard Operacional adicionado */}
+        <NavLink to="/operational/dashboard" end className={navLinkClass}>
+          <Home className="mr-3 h-5 w-5" />
+          Dashboard
+        </NavLink>
+
         <NavLink to="/operational/tasks" className={navLinkClass}>
           <CheckSquare className="mr-3 h-5 w-5" />
           Tarefas
@@ -47,7 +54,7 @@ const OperationalHeader = ({ user }) => {
         <header className="bg-white shadow-md p-4 flex justify-between items-center">
             <div>
                  <h1 className="text-xl font-semibold text-gray-700">Painel Operacional</h1>
-            </div> 
+            </div>
 
             <div className="flex items-center gap-6">
                 <div className="flex items-center gap-3 text-sm text-gray-600">
@@ -60,16 +67,17 @@ const OperationalHeader = ({ user }) => {
                 <div className="relative">
                     <button className="relative text-gray-500 hover:text-gray-800">
                         <Bell size={22} />
+                        {/* Lógica de notificações pode ser adicionada aqui */}
                     </button>
                 </div>
                 <div className="flex items-center gap-3">
-                    <img 
+                    <img
                         src={`https://i.pravatar.cc/150?u=${user?.id || 'operational'}`}
                         alt="Avatar do Utilizador"
                         className="h-10 w-10 rounded-full"
                     />
                     <div>
-                        <p className="font-semibold text-sm text-gray-800">{user?.fullName || 'Usuário Operacional'}</p>
+                        <p className="font-semibold text-sm text-gray-800">{user?.nome || 'Usuário Operacional'}</p> {/* Usa user.nome */}
                         <p className="text-xs text-gray-500">Operacional</p>
                     </div>
                 </div>
@@ -80,14 +88,14 @@ const OperationalHeader = ({ user }) => {
 
 
 // O Layout Principal para a Área Operacional
-const OperationalLayout = ({ user }) => {
+const OperationalLayout = ({ user }) => { // Recebe user como prop
   return (
     <div className="flex h-screen bg-gray-100">
       <OperationalSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <OperationalHeader user={user} />
+        <OperationalHeader user={user} /> {/* Passa user para o Header */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 p-6">
-          <Outlet />
+          <Outlet /> {/* O contexto das rotas pai será passado aqui */}
         </main>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios'; // <- Descomentado
 import { Link } from 'react-router-dom';
-import { Calendar, CheckSquare, Video, Loader2, Users } from 'lucide-react'; // Adicionado Users
+import { Calendar, CheckSquare, Video, Loader2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { useAuth } from '../../../auth/AuthContext.tsx'; 
 
@@ -30,15 +30,7 @@ interface Event {
     id?: string;
 }
 
-interface User {
-  id: string;
-  nome: string;
-  email: string;
-  role: string;
-  status: string; // 'Ativo', 'Inativo'
-}
-
-// --- DADOS MOCK REMOVIDOS ---
+// --- DADOS MOCK (FALSOS) REMOVIDOS ---
 
 // Componente de Card de Métrica
 const MetricCard = ({ title, value, icon: Icon, color, linkTo }) => (
@@ -51,51 +43,56 @@ const MetricCard = ({ title, value, icon: Icon, color, linkTo }) => (
   </Link>
 );
 
-// Componente Principal do Dashboard Admin
-const AdminDashboard: React.FC = () => {
+// Componente Principal do Dashboard Operacional
+const OperationalDashboardPage: React.FC = () => {
   const { user } = useAuth(); // Pega o usuário logado do contexto
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meets, setMeets] = useState<Meet[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
-  const [users, setUsers] = useState<User[]>([]); // Estado para usuários
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Usar import.meta.env
-  const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-  const googleId = localStorage.getItem('googleId');
+  const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; 
+  const googleId = localStorage.getItem('googleId'); 
 
   useEffect(() => {
     // --- SIMULAÇÃO (MOCK) REMOVIDA ---
 
     // --- CÓDIGO REAL (AGORA ATIVO) ---
+    if (!user?.id) {
+        setLoading(false);
+        setError("Não foi possível identificar o usuário logado.");
+        return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const fetchPromises: Promise<any>[] = [ // Tipo explícito para o array de promises
-          axios.get(`${API_URL}/tasks`),  // Busca TODAS as tarefas
-          axios.get(`${API_URL}/users`),  // Busca TODOS os usuários
+        const fetchPromises = [
+          axios.get(`${API_URL}/tasks`), // Busca TODAS as tarefas
         ];
 
-        // Só busca eventos e meets se tiver googleId (admin também pode ter)
+        // Só busca eventos e meets se tiver googleId
         if (googleId) {
           fetchPromises.push(axios.get(`${API_URL}/google/events/${googleId}`));
           fetchPromises.push(axios.get(`${API_URL}/google/meets/${googleId}`));
         } else {
            console.warn("Google ID não encontrado. Não foi possível buscar eventos e meets.");
-           // Adiciona promises resolvidas para manter a ordem do Promise.all
            fetchPromises.push(Promise.resolve({ data: [] })); // Para events
            fetchPromises.push(Promise.resolve({ data: [] })); // Para meets
         }
 
-        // Aguarda todas as chamadas
-        const [tasksRes, usersRes, eventsRes, meetsRes] = await Promise.all(fetchPromises);
+        const [tasksRes, eventsRes, meetsRes] = await Promise.all(fetchPromises);
 
-        setTasks(tasksRes.data || []);
-        setUsers(usersRes.data || []);
-        setEvents(eventsRes?.data || []); // eventsRes pode ser undefined se googleId não existir
-        setMeets(meetsRes?.data || []); // meetsRes pode ser undefined
+        // Filtra as tarefas no frontend para mostrar apenas as do usuário logado
+        const allTasks: Task[] = tasksRes.data || [];
+        const myTasks = allTasks.filter(task => task.user?.id === user.id);
+
+        setTasks(myTasks);
+        setEvents(eventsRes.data || []);
+        setMeets(meetsRes.data || []);
 
       } catch (err: any) {
         console.error("Erro ao buscar dados do dashboard:", err);
@@ -106,9 +103,7 @@ const AdminDashboard: React.FC = () => {
             errorMsg = err.message;
         }
         setError(errorMsg);
-        // Define arrays vazios em caso de erro
         setTasks([]);
-        setUsers([]);
         setEvents([]);
         setMeets([]);
       } finally {
@@ -120,20 +115,12 @@ const AdminDashboard: React.FC = () => {
     // --- FIM DO CÓDIGO REAL ---
   }, [user?.id, API_URL, googleId]); // Dependências corretas
 
-  // --- Cálculos para os Cards e Gráficos (Visão Admin) ---
+  // --- Cálculos para os Cards e Gráficos (focados nas tarefas do usuário) ---
   const taskSummary = useMemo(() => {
-    const total = tasks.length;
     const pending = tasks.filter(t => t.status?.toLowerCase() === 'a fazer').length;
-    const inProgress = tasks.filter(t => t.status?.toLowerCase() === 'em andamento').length; 
-    return { total, pending, inProgress };
+    return { pending };
   }, [tasks]);
 
-  const userSummary = useMemo(() => {
-    const total = users.length;
-    const active = users.filter(u => u.status?.toLowerCase() === 'ativo').length; 
-    return { total, active };
-  }, [users]);
-  
   const upcomingEvents = useMemo(() => {
     const now = new Date();
     return events
@@ -179,20 +166,19 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 p-4 md:p-6">
-      <h1 className="text-3xl font-bold text-gray-800">Dashboard Administrativo</h1>
+      <h1 className="text-3xl font-bold text-gray-800">Meu Dashboard</h1>
 
       {/* Cards de Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard title="Total de Tarefas" value={taskSummary.total} icon={CheckSquare} color="bg-brand-orange" linkTo="/tasks" />
-        <MetricCard title="Usuários Ativos" value={`${userSummary.active} / ${userSummary.total}`} icon={Users} color="bg-blue-500" linkTo="/users" />
-        <MetricCard title="Próximos Eventos (Agenda)" value={upcomingEvents.length} icon={Calendar} color="bg-brand-teal" linkTo="/agenda" />
-        <MetricCard title="Próximas Reuniões (Meet)" value={upcomingMeets.length} icon={Video} color="bg-brand-green-light" linkTo="/meet" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <MetricCard title="Minhas Tarefas Pendentes" value={taskSummary.pending} icon={CheckSquare} color="bg-brand-orange" linkTo="/operational/tasks" />
+        <MetricCard title="Meus Próximos Eventos" value={upcomingEvents.length} icon={Calendar} color="bg-brand-teal" linkTo="/operational/agenda" />
+        <MetricCard title="Minhas Próximas Reuniões" value={upcomingMeets.length} icon={Video} color="bg-brand-green-light" linkTo="/operational/meet" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
          {/* Gráfico de Status das Tarefas */}
         <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
-           <h3 className="text-lg font-semibold text-gray-800 mb-4">Status Geral das Tarefas</h3>
+           <h3 className="text-lg font-semibold text-gray-800 mb-4">Status das Minhas Tarefas</h3>
             {tasks.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
@@ -215,7 +201,7 @@ const AdminDashboard: React.FC = () => {
                 </PieChart>
                 </ResponsiveContainer>
             ) : (
-                <p className="text-gray-500 text-center mt-10">Nenhuma tarefa encontrada.</p>
+                <p className="text-gray-500 text-center mt-10">Nenhuma tarefa atribuída a você.</p>
             )}
         </div>
 
@@ -224,8 +210,8 @@ const AdminDashboard: React.FC = () => {
           {/* Próximos Eventos da Agenda */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Próximos Eventos (Agenda Admin)</h3>
-              <Link to="/agenda" className="text-sm font-semibold text-indigo-600 hover:underline">Ver Agenda</Link>
+              <h3 className="text-lg font-semibold text-gray-800">Próximos Eventos (Agenda)</h3>
+              <Link to="/operational/agenda" className="text-sm font-semibold text-indigo-600 hover:underline">Ver Agenda</Link>
             </div>
             <div className="space-y-3 max-h-60 overflow-y-auto">
               {upcomingEvents.length > 0 ? (
@@ -246,8 +232,8 @@ const AdminDashboard: React.FC = () => {
           {/* Próximas Reuniões */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Próximas Reuniões (Meet Admin)</h3>
-              <Link to="/meet" className="text-sm font-semibold text-indigo-600 hover:underline">Ver Meets</Link>
+              <h3 className="text-lg font-semibold text-gray-800">Próximas Reuniões (Meet)</h3>
+              <Link to="/operational/meet" className="text-sm font-semibold text-indigo-600 hover:underline">Ver Meets</Link>
             </div>
             <div className="space-y-3 max-h-60 overflow-y-auto">
               {upcomingMeets.length > 0 ? (
@@ -277,4 +263,4 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-export default AdminDashboard;
+export default OperationalDashboardPage;
