@@ -1,62 +1,65 @@
 import { useMemo } from 'react';
 import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
-import { ProtectedRoute } from '../auth/AuthContext'; // Removido .tsx
+import { ProtectedRoute } from '../auth/AuthContext.tsx'; // Adicionado .tsx
 // Auth
-import { useAuth } from '../auth/AuthContext'; // Removido .tsx
+import { useAuth } from '../auth/AuthContext.tsx'; // Adicionado .tsx
 
-import LoginPage from '../auth/LoginPage'; // Removido .tsx
+import LoginPage from '../auth/LoginPage.tsx'; // Adicionado .tsx
 
 // Layouts
-import MainLayout from '../components/layout/MainLayout'; // Removido .tsx
-import ConsultantLayout from '../components/layout/ConsultantLayout'; // Removido .tsx
-import ClientLayout from '../components/layout/ClientLayout'; // Removido .tsx
-import OperationalLayout from '../components/layout/OperationalLayout'; // Removido .tsx
+import MainLayout from '../components/layout/MainLayout.tsx'; // Adicionado .tsx
+import ConsultantLayout from '../components/layout/ConsultantLayout.tsx'; // Adicionado .tsx
+import ClientLayout from '../components/layout/ClientLayout.tsx'; // Adicionado .tsx
+import OperationalLayout from '../components/layout/OperationalLayout.tsx'; // Adicionado .tsx
 
 
 // Páginas do Admin
-import AdminDashboard from '../features/admin/dashboard/AdminDashboard'; // Removido .tsx
-import AgendaPage from '../features/admin/agenda/AgendaPage'; // Removido .tsx
-import TaskBoardPage from '../features/admin/tasks/TaskBoardPage'; // Removido .tsx
-import UserListPage from '../features/admin/users/UserListPage'; // Removido .tsx
-import MeetPage from '../features/admin/meet/MeetPage'; // Removido .tsx
-// A importação do SharedDashboardPage foi removida
+import AdminDashboard from '../features/admin/dashboard/AdminDashboard.tsx'; // Importa o dashboard do Admin
+import AgendaPage from '../features/admin/agenda/AgendaPage.tsx'; // Adicionado .tsx
+import TaskBoardPage from '../features/admin/tasks/TaskBoardPage.tsx'; // Adicionado .tsx
+import UserListPage from '../features/admin/users/UserListPage.tsx'; // Adicionado .tsx
+import MeetPage from '../features/admin/meet/MeetPage.tsx'; // Adicionado .tsx
+
 
 // Páginas do Consultor
-import ConsultantDashboardPage from '../features/consultant/dashboard/ConsultantDashboardPage'; // Removido .tsx
-import ConsultantTasksPage from '../features/consultant/tasks/ConsultantTasksPage'; // Removido .tsx
-import ConsultantPaymentsPage from '../features/consultant/payments/ConsultantPaymentsPage'; // Removido .tsx
-import ConsultantServicesPage from '../features/consultant/services/ConsultantServicesPage'; // Removido .tsx
-import ConsultantServiceDetailPage from '../features/consultant/services/ConsultantServiceDetailPage'; // Removido .tsx
-import ConsultantDocumentsPage from '../features/consultant/documents/ConsultantDocumentsPage'; // Removido .tsx
-import ConsultantDocumentDetailPage from '../features/consultant/documents/ConsultantDocumentDetailPage'; // Removido .tsx
-import ConsultantLogbookPage from '../features/consultant/logbook/ConsultantLogbookPage'; // Removido .tsx
+import ConsultantDashboardPage from '../features/consultant/dashboard/ConsultantDashboardPage.tsx'; // Adicionado .tsx
+import ConsultantTasksPage from '../features/consultant/tasks/ConsultantTasksPage.tsx'; // Adicionado .tsx
+import ConsultantPaymentsPage from '../features/consultant/payments/ConsultantPaymentsPage.tsx'; // Adicionado .tsx
+import ConsultantServicesPage from '../features/consultant/services/ConsultantServicesPage.tsx'; // Adicionado .tsx
+import ConsultantServiceDetailPage from '../features/consultant/services/ConsultantServiceDetailPage.tsx'; // Adicionado .tsx
+import ConsultantDocumentsPage from '../features/consultant/documents/ConsultantDocumentsPage.tsx'; // Adicionado .tsx
+import ConsultantDocumentDetailPage from '../features/consultant/documents/ConsultantDocumentDetailPage.tsx'; // Adicionado .tsx
+import ConsultantLogbookPage from '../features/consultant/logbook/ConsultantLogbookPage.tsx'; // Adicionado .tsx
 
 // Páginas Operacionais
-import OperationalDashboardPage from '../features/operational/dashboard/OperationalDashboardPage'; // Removido .tsx
-import OperationalTasksPage from '../features/operational/tasks/OperationalTasksPage'; // Removido .tsx
-import OperationalMeetPage from '../features/operational/meet/MeetPage'; // Removido .tsx
+import OperationalDashboardPage from '../features/operational/dashboard/OperationalDashboardPage.tsx'; // Importa o dashboard Operacional
+import OperationalTasksPage from '../features/operational/tasks/OperationalTasksPage.tsx'; // Adicionado .tsx
+import OperationalMeetPage from '../features/operational/meet/MeetPage.tsx'; // Adicionado .tsx
+
+// NOVA PÁGINA DE PERFIL
+import ProfilePage from '../features/profile/ProfilePage.tsx'; // Adicionado .tsx
 
 
 // Páginas do Cliente
-import ClientDashboardPage from '../features/client/dashboard/ClientDashboardPage'; // Removido .tsx
-import ClientServicesPage from '../features/client/services/ClientServicesPage'; // Removido .tsx
-import ClientServiceDetailPage from '../features/client/services/ClientServiceDetailPage'; // Removido .tsx
-import ClientDocumentsPage from "../features/client/documents/ClientDocumentsPage"; // Removido .tsx
-import ClientDocumentDetailPage from "../features/client/documents/ClientDocumentDetailPage"; // Removido .tsx
-import ClientFinancialPage from "../features/client/financial/ClientFinancialPage"; // Removido .tsx
+import ClientDashboardPage from '../features/client/dashboard/ClientDashboardPage.tsx'; // Adicionado .tsx
+import ClientServicesPage from '../features/client/services/ClientServicesPage.tsx'; // Adicionado .tsx
+import ClientServiceDetailPage from '../features/client/services/ClientServiceDetailPage.tsx'; // Adicionado .tsx
+import ClientDocumentsPage from "../features/client/documents/ClientDocumentsPage.tsx"; // Adicionado .tsx
+import ClientDocumentDetailPage from "../features/client/documents/ClientDocumentDetailPage.tsx"; // Adicionado .tsx
+import ClientFinancialPage from "../features/client/financial/ClientFinancialPage.tsx"; // Adicionado .tsx
 
 
-// Tipos (Não adicionamos .ts aqui, pois não estavam na lista de erros)
-import { Service } from '../features/admin/services/types';
-import { Client } from '../features/admin/clients/types';
-import { Contract } from '../features/admin/contracts/types';
-import { Consultant } from '../features/admin/consultants/types';
-import { Document } from '../features/admin/documents/types';
-import { TaskBoard, Task, Tag } from '../features/admin/tasks/types';
-import { LogEntry, Announcement } from '../features/admin/logbook/types';
-import { RevenueTransaction } from '../features/admin/financial/types';
-import { CalendarEvent, Task as CalendarTask } from '../features/admin/agenda/types';
-import { User } from '../features/admin/users/types';
+// Tipos
+import { Service } from '../features/admin/services/types.ts';
+import { Client } from '../features/admin/clients/types.ts';
+import { Contract } from '../features/admin/contracts/types.ts';
+import { Consultant } from '../features/admin/consultants/types.ts';
+import { Document } from '../features/admin/documents/types.ts';
+import { TaskBoard, Task, Tag } from '../features/admin/tasks/types.ts';
+import { LogEntry, Announcement } from '../features/admin/logbook/types.ts';
+import { RevenueTransaction } from '../features/admin/financial/types.ts';
+import { CalendarEvent, Task as CalendarTask } from '../features/admin/agenda/types.ts';
+import { User } from '../features/admin/users/types.ts';
 
 // Tipo para o autor de uma entrada ou comentário no logbook
 type LogAuthor = { id: string; name: string; avatarUrl: string };
@@ -90,12 +93,13 @@ interface AppRoutesProps {
 
 const AppRoutes = (props: AppRoutesProps) => {
     const { user } = useAuth(); // Obter o utilizador logado
-    const userRole = user?.role?.toLowerCase(); // Converte a role para minúsculas
+    // Normaliza a role para minúsculas para evitar erros de case
+    const userRole = user?.role?.toLowerCase();
 
   // Encontrar os dados do utilizador atual com base no seu ID
   const currentConsultant = props.consultants.find(c => c.contact.email === user?.email);
   const currentClient = props.clients.find(c => c.email === user?.email);
-  const operationalUser = props.users.find(u => u.email === user?.email && u.role === 'operational'); // Mantém minúsculo aqui pois vem de `props.users`
+  const operationalUser = props.users.find(u => u.email === user?.email && u.role?.toLowerCase() === 'operational'); // Corrigido para minúsculas 'operational'
 
 
   // Dados filtrados para o Consultor
@@ -153,6 +157,22 @@ const AppRoutes = (props: AppRoutesProps) => {
         }
       >
       {/* Rotas Protegidas */}
+
+        {/* ROTA DE PERFIL (ACESSÍVEL A TODOS OS LOGADOS) */}
+        <Route
+            path="/profile"
+            element={
+                // Determina o layout com base na role
+                userRole === 'admin' || userRole === 'admin master' ? <MainLayout /> :
+                userRole === 'operational' ? <OperationalLayout user={operationalUser} /> :
+                userRole === 'consultant' ? <ConsultantLayout /> :
+                userRole === 'client' ? <ClientLayout client={currentClient} /> :
+                <MainLayout /> // Layout padrão
+            }
+        >
+            <Route index element={<ProfilePage />} />
+        </Route>
+
 
         {/* Passamos todas as props para as rotas aninhadas através do contexto do Outlet */}
         <Route element={<Outlet context={props} />}>
@@ -267,7 +287,7 @@ const AppRoutes = (props: AppRoutesProps) => {
                     <Route path="documents/:documentId" element={
                       <ClientDocumentDetailPage
                         documents={clientDocuments}
-                          onAddComment={(docId, text) => clientAuthor && props.onAddCommentToDocument(docId, text, clientAuthor.name)}
+                        onAddComment={(docId, text) => clientAuthor && props.onAddCommentToDocument(docId, text, clientAuthor.name)}
                       />}
                     />
                     <Route path="financial" element={<ClientFinancialPage contracts={clientContracts} revenues={clientRevenues} />} />
@@ -280,7 +300,7 @@ const AppRoutes = (props: AppRoutesProps) => {
                 <Route path="/operational" element={<OperationalLayout user={operationalUser} />}>
                      {/* Redireciona a raiz para o dashboard */}
                     <Route index element={<Navigate to="dashboard" replace />} />
-                    {/* Atualiza a rota do dashboard para usar o novo OperationalDashboardPage */}
+                    {/* Adiciona a rota do dashboard */}
                     <Route path="dashboard" element={<OperationalDashboardPage />} />
                     <Route
                       path="tasks"
@@ -303,7 +323,6 @@ const AppRoutes = (props: AppRoutesProps) => {
       </Route>
 
        {/* Rota de fallback */}
-       {/* Atualiza o fallback para usar a role em minúsculas */}
        <Route path="*" element={<Navigate to={user ? (userRole === 'admin' || userRole === 'admin master' ? '/dashboard' : `/${userRole}/dashboard`) : "/login"} replace />} />
 
 
