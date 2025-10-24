@@ -1,60 +1,65 @@
 import { useMemo } from 'react';
 import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
-import { ProtectedRoute } from '../auth/AuthContext';
+import { ProtectedRoute } from '../auth/AuthContext.tsx'; // Adicionado .tsx
 // Auth
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/AuthContext.tsx'; // Adicionado .tsx
 
-import LoginPage from '../auth/LoginPage';
+import LoginPage from '../auth/LoginPage.tsx'; // Adicionado .tsx
 
 // Layouts
-import MainLayout from '../components/layout/MainLayout';
-import ConsultantLayout from '../components/layout/ConsultantLayout';
-import ClientLayout from '../components/layout/ClientLayout';
-import OperationalLayout from '../components/layout/OperationalLayout';
+import MainLayout from '../components/layout/MainLayout.tsx'; // Adicionado .tsx
+import ConsultantLayout from '../components/layout/ConsultantLayout.tsx'; // Adicionado .tsx
+import ClientLayout from '../components/layout/ClientLayout.tsx'; // Adicionado .tsx
+import OperationalLayout from '../components/layout/OperationalLayout.tsx'; // Adicionado .tsx
 
 
 // Páginas do Admin
-import AgendaPage from '../features/admin/agenda/AgendaPage';
-import TaskBoardPage from '../features/admin/tasks/TaskBoardPage';
-import UserListPage from '../features/admin/users/UserListPage';
-import MeetPage from '../features/admin/meet/MeetPage';
+import AdminDashboard from '../features/admin/dashboard/AdminDashboard.tsx'; // Importa o dashboard do Admin
+import AgendaPage from '../features/admin/agenda/AgendaPage.tsx'; // Adicionado .tsx
+import TaskBoardPage from '../features/admin/tasks/TaskBoardPage.tsx'; // Adicionado .tsx
+import UserListPage from '../features/admin/users/UserListPage.tsx'; // Adicionado .tsx
+import MeetPage from '../features/admin/meet/MeetPage.tsx'; // Adicionado .tsx
 
 
 // Páginas do Consultor
-import ConsultantDashboardPage from '../features/consultant/dashboard/ConsultantDashboardPage';
-import ConsultantTasksPage from '../features/consultant/tasks/ConsultantTasksPage';
-import ConsultantPaymentsPage from '../features/consultant/payments/ConsultantPaymentsPage';
-import ConsultantServicesPage from '../features/consultant/services/ConsultantServicesPage';
-import ConsultantServiceDetailPage from '../features/consultant/services/ConsultantServiceDetailPage';
-import ConsultantDocumentsPage from '../features/consultant/documents/ConsultantDocumentsPage';
-import ConsultantDocumentDetailPage from '../features/consultant/documents/ConsultantDocumentDetailPage';
-import ConsultantLogbookPage from '../features/consultant/logbook/ConsultantLogbookPage';
+import ConsultantDashboardPage from '../features/consultant/dashboard/ConsultantDashboardPage.tsx'; // Adicionado .tsx
+import ConsultantTasksPage from '../features/consultant/tasks/ConsultantTasksPage.tsx'; // Adicionado .tsx
+import ConsultantPaymentsPage from '../features/consultant/payments/ConsultantPaymentsPage.tsx'; // Adicionado .tsx
+import ConsultantServicesPage from '../features/consultant/services/ConsultantServicesPage.tsx'; // Adicionado .tsx
+import ConsultantServiceDetailPage from '../features/consultant/services/ConsultantServiceDetailPage.tsx'; // Adicionado .tsx
+import ConsultantDocumentsPage from '../features/consultant/documents/ConsultantDocumentsPage.tsx'; // Adicionado .tsx
+import ConsultantDocumentDetailPage from '../features/consultant/documents/ConsultantDocumentDetailPage.tsx'; // Adicionado .tsx
+import ConsultantLogbookPage from '../features/consultant/logbook/ConsultantLogbookPage.tsx'; // Adicionado .tsx
 
 // Páginas Operacionais
-import OperationalTasksPage from '../features/operational/tasks/OperationalTasksPage';
-import OperationalMeetPage from '../features/operational/meet/MeetPage';
+import OperationalDashboardPage from '../features/operational/dashboard/OperationalDashboardPage.tsx'; // Importa o dashboard Operacional
+import OperationalTasksPage from '../features/operational/tasks/OperationalTasksPage.tsx'; // Adicionado .tsx
+import OperationalMeetPage from '../features/operational/meet/MeetPage.tsx'; // Adicionado .tsx
+
+// NOVA PÁGINA DE PERFIL
+import ProfilePage from '../features/profile/ProfilePage.tsx'; // Adicionado .tsx
 
 
 // Páginas do Cliente
-import ClientDashboardPage from '../features/client/dashboard/ClientDashboardPage';
-import ClientServicesPage from '../features/client/services/ClientServicesPage';
-import ClientServiceDetailPage from '../features/client/services/ClientServiceDetailPage';
-import ClientDocumentsPage from "../features/client/documents/ClientDocumentsPage";
-import ClientDocumentDetailPage from "../features/client/documents/ClientDocumentDetailPage";
-import ClientFinancialPage from "../features/client/financial/ClientFinancialPage";
+import ClientDashboardPage from '../features/client/dashboard/ClientDashboardPage.tsx'; // Adicionado .tsx
+import ClientServicesPage from '../features/client/services/ClientServicesPage.tsx'; // Adicionado .tsx
+import ClientServiceDetailPage from '../features/client/services/ClientServiceDetailPage.tsx'; // Adicionado .tsx
+import ClientDocumentsPage from "../features/client/documents/ClientDocumentsPage.tsx"; // Adicionado .tsx
+import ClientDocumentDetailPage from "../features/client/documents/ClientDocumentDetailPage.tsx"; // Adicionado .tsx
+import ClientFinancialPage from "../features/client/financial/ClientFinancialPage.tsx"; // Adicionado .tsx
 
 
 // Tipos
-import { Service } from '../features/admin/services/types';
-import { Client } from '../features/admin/clients/types';
-import { Contract } from '../features/admin/contracts/types';
-import { Consultant } from '../features/admin/consultants/types';
-import { Document } from '../features/admin/documents/types';
-import { TaskBoard, Task, Tag } from '../features/admin/tasks/types';
-import { LogEntry, Announcement } from '../features/admin/logbook/types';
-import { RevenueTransaction } from '../features/admin/financial/types';
-import { CalendarEvent, Task as CalendarTask } from '../features/admin/agenda/types';
-import { User } from '../features/admin/users/types';
+import { Service } from '../features/admin/services/types.ts';
+import { Client } from '../features/admin/clients/types.ts';
+import { Contract } from '../features/admin/contracts/types.ts';
+import { Consultant } from '../features/admin/consultants/types.ts';
+import { Document } from '../features/admin/documents/types.ts';
+import { TaskBoard, Task, Tag } from '../features/admin/tasks/types.ts';
+import { LogEntry, Announcement } from '../features/admin/logbook/types.ts';
+import { RevenueTransaction } from '../features/admin/financial/types.ts';
+import { CalendarEvent, Task as CalendarTask } from '../features/admin/agenda/types.ts';
+import { User } from '../features/admin/users/types.ts';
 
 // Tipo para o autor de uma entrada ou comentário no logbook
 type LogAuthor = { id: string; name: string; avatarUrl: string };
@@ -88,6 +93,8 @@ interface AppRoutesProps {
 
 const AppRoutes = (props: AppRoutesProps) => {
     const { user } = useAuth(); // Obter o utilizador logado
+    // Normaliza a role para minúsculas para evitar erros de case
+    const userRole = user?.role?.toLowerCase();
 
   // Encontrar os dados do utilizador atual com base no seu ID
   const currentConsultant = props.consultants.find(c => c.contact.email === user?.email);
@@ -132,6 +139,7 @@ const AppRoutes = (props: AppRoutesProps) => {
   // Autores para logs e comentários
   const consultantAuthor: LogAuthor | undefined = currentConsultant ? { id: currentConsultant.id, name: currentConsultant.fullName, avatarUrl: `https://i.pravatar.cc/150?u=${currentConsultant.id}` } : undefined;
   const clientAuthor = currentClient ? { name: currentClient.companyName } : undefined;
+  const operationalUser = props.users.find(u => u.email === user?.email && u.role?.toLowerCase() === 'operational');
 
   const operationalEvents: CalendarEvent[] = useMemo(() => {
     // ... (lógica existente para eventos operacionais)
@@ -150,23 +158,46 @@ const AppRoutes = (props: AppRoutesProps) => {
         }
       >
       {/* Rotas Protegidas */}
-      
+
+        {/* ROTA DE PERFIL (ACESSÍVEL A TODOS OS LOGADOS) */}
+        <Route
+            path="/profile"
+            element={
+                // Determina o layout com base na role
+                userRole === 'admin' || userRole === 'admin master' ? <MainLayout /> :
+                userRole === 'operational' ? <OperationalLayout user={operationalUser} /> :
+                userRole === 'consultant' ? <ConsultantLayout /> :
+                userRole === 'client' ? <ClientLayout client={currentClient} /> :
+                <MainLayout /> // Layout padrão
+            }
+        >
+            <Route index element={<ProfilePage />} />
+        </Route>
+
+
         {/* Passamos todas as props para as rotas aninhadas através do contexto do Outlet */}
         <Route element={<Outlet context={props} />}>
             {/* Rotas do Administrador */}
-            {user && (user.role === 'admin' || user.role === 'admin master') && (
+            {/* Verifica a role em minúsculas */}
+            {user && (userRole === 'admin' || userRole === 'admin master') && (
                 <Route path="/" element={<MainLayout />}>
-                  <Route index element={<Navigate to="/tasks" replace />} />
-                   <Route path="tasks" element={<TaskBoardPage initialBoard={props.taskBoard} consultants={props.consultants} onUpdateTaskBoard={props.onUpdateTaskBoard} onUpdateTask={props.onUpdateTask} onDeleteTask={props.onDeleteTask} onAddTaskComment={props.onAddTaskComment} onUpdateTags={props.onUpdateTags} />} />
+                  {/* ALTERAÇÃO: Redireciona a raiz para o dashboard */}
+                  <Route index element={<Navigate to="/dashboard" replace />} />
+                  {/* Atualiza a rota do dashboard para usar o AdminDashboard */}
+                  <Route path="dashboard" element={<AdminDashboard />} />
+                  <Route path="tasks" element={<TaskBoardPage initialBoard={props.taskBoard} />} />
                   <Route path="agenda" element={<AgendaPage services={props.services} />} />
                   <Route path="meet" element={<MeetPage events={operationalEvents} />} />
-                  <Route path="users" element={<UserListPage users={props.users} onSaveUser={props.onSaveUser} onDeleteUser={props.onDeleteUser} />} />
+                  {/* Passa as props necessárias para UserListPage */}
+                  <Route path="users" element={<UserListPage />} />
                 </Route>
             )}
 
             {/* Rotas do Consultor */}
-            {user && user.role === 'consultant' && currentConsultant && (
+             {/* Verifica a role em minúsculas */}
+            {user && userRole === 'consultant' && currentConsultant && (
                 <Route path="/consultant" element={<ConsultantLayout />}>
+                    {/* Mantém o dashboard específico do consultor */}
                     <Route
                       path="dashboard"
                       element={<ConsultantDashboardPage
@@ -204,6 +235,8 @@ const AppRoutes = (props: AppRoutesProps) => {
                       element={<ConsultantDocumentDetailPage
                           documents={consultantDocuments}
                           onAddComment={(docId, text) => props.onAddCommentToDocument(docId, text, currentConsultant.fullName)}
+                          // Passa consultantName para o detalhe também, se necessário
+                          consultantName={currentConsultant.fullName}
                       />}
                     />
                     <Route
@@ -224,8 +257,9 @@ const AppRoutes = (props: AppRoutesProps) => {
             )}
 
             {/* Rotas do Cliente */}
-            {user && user.role === 'client' && currentClient && (
-                <Route path="/client" element={<ClientLayout />}>
+             {/* Verifica a role em minúsculas */}
+            {user && userRole === 'client' && currentClient && (
+                <Route path="/client" element={<ClientLayout client={currentClient} />}>
                     <Route
                       path="dashboard"
                       element={<ClientDashboardPage
@@ -238,7 +272,7 @@ const AppRoutes = (props: AppRoutesProps) => {
                     <Route path="services" element={
                       <ClientServicesPage
                         services={clientServices}
-                        allServices={props.services}
+                        allServices={props.services} // Passa todos os serviços para o modal de solicitação
                         currentClient={currentClient}
                         onAddService={props.onAddService}
                       />}
@@ -247,7 +281,7 @@ const AppRoutes = (props: AppRoutesProps) => {
                     <Route path="documents" element={
                       <ClientDocumentsPage
                         documents={clientDocuments}
-                        currentClient={currentClient}
+                        currentClient={currentClient} // Passa currentClient
                         onAddDocument={(doc) => clientAuthor && props.onAddDocument(doc, clientAuthor.name)}
                       />
                     } />
@@ -269,16 +303,21 @@ const AppRoutes = (props: AppRoutesProps) => {
                   <Route
                     path="tasks"
                     element={
+
                       <OperationalTasksPage
                         taskBoard={props.taskBoard}
                         currentUser={user}
                       />
                     }
                   />
+                  <Route 
+                     path="dashboard" 
+                     element={<OperationalDashboardPage />} 
+                      />
             
                     <Route
                       path="agenda"
-                      element={<AgendaPage services={props.services} />}
+                      element={<AgendaPage services={props.services} />} // Pode filtrar serviços relevantes se necessário
                     />
                     <Route
                       path="meet"
@@ -288,9 +327,10 @@ const AppRoutes = (props: AppRoutesProps) => {
             )}
         </Route>
       </Route>
-      
-       {/* Rota de fallback para redirecionar para o login se nenhuma outra rota corresponder */}
-       <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
+
+       {/* Rota de fallback */}
+       <Route path="*" element={<Navigate to={user ? (userRole === 'admin' || userRole === 'admin master' ? '/dashboard' : `/${userRole}/dashboard`) : "/login"} replace />} />
+
 
     </Routes>
   );
