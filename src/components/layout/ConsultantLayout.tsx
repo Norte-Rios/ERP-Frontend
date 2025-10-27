@@ -4,6 +4,8 @@ import { LayoutDashboard, CheckSquare, DollarSign, LogOut, Calendar, Briefcase, 
 import { Service } from '../../features/admin/services/types';
 import { Document } from '../../features/admin/documents/types';
 
+
+const API_URL = import.meta.env.VITE_BACKEND_URL;
 // Componente da Barra Lateral do Consultor (inalterado)
 const ConsultantSidebar = () => {
     const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -59,7 +61,7 @@ const ConsultantSidebar = () => {
 // Componente do Cabeçalho do Consultor (AGORA COM NOTIFICAÇÕES)
 const ConsultantHeader = ({ consultantName, services, documents, consultantId }) => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-
+    const avatarUrl = user?.id ? `${API_URL}/users/${user.id}/avatar` : null;
     const notifications = useMemo(() => {
         const alerts: { text: string, path: string }[] = [];
 
@@ -131,7 +133,7 @@ const ConsultantHeader = ({ consultantName, services, documents, consultantId })
                 {/* Perfil do Consultor */}
                 <div className="flex items-center gap-3">
                     <img 
-                        src={`https://i.pravatar.cc/150?u=${consultantId}`}
+                        src={avatarUrl}
                         alt="Avatar do Consultor"
                         className="h-10 w-10 rounded-full"
                     />

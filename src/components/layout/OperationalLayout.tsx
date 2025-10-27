@@ -1,18 +1,29 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
-// ADICIONADO UserIcon
+// ATUALIZADO: Importa useEffect
+import React, { useState, useEffect } from 'react';
+// ATUALIZADO: Importa Outlet e useNavigate
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { CheckSquare, LogOut, Bell, Sun, Calendar, Video, Home, User as UserIcon } from 'lucide-react';
-// Importa o useAuth para o sidebar (embora o header receba via props)
 import { useAuth } from '../../auth/AuthContext';
+const API_URL = import.meta.env.VITE_BACKEND_URL;
 
-// Componente da Barra Lateral Operacional
+// Componente da Barra Lateral Operacional (ATUALIZADO)
 const OperationalSidebar = () => {
-    // const { user } = useAuth(); // Descomente se precisar do user aqui
+  // ATUALIZADO: Hooks para logout e navegação
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
-    const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center px-4 py-3 text-sm text-gray-200 hover:bg-brand-green-light/50 hover:text-white rounded-md transition-colors duration-200 ${
       isActive ? 'bg-brand-green-light text-white' : ''
     }`;
+
+ 
+  const handleLogout = () => {
+    if (logout) {
+      logout();
+    }
+    navigate('/login');
+  };
 
   return (
     <aside className="w-64 bg-brand-green-dark text-white flex flex-col min-h-screen">
@@ -20,7 +31,7 @@ const OperationalSidebar = () => {
         <img src="/norte-logo.png" alt="Logótipo Norte Rios" className="h-16 mx-auto" />
       </div>
       <nav className="flex-1 px-4 py-4 space-y-2">
-        {/* Link direto para o Dashboard Operacional */}
+        {/* Links... (inalterados) */}
         <NavLink to="/operational/dashboard" end className={navLinkClass}>
           <Home className="mr-3 h-5 w-5" />
           Dashboard
@@ -40,14 +51,16 @@ const OperationalSidebar = () => {
       </nav>
       {/* Perfil e Sair */}
       <div className="px-4 py-4 border-t border-brand-green-light/30 mt-auto">
-        
-        {/* LINK PARA O PERFIL (ADICIONADO) */}
         <NavLink to="/profile" className={navLinkClass}>
           <UserIcon className="mr-3 h-5 w-5" />
           Meu Perfil
         </NavLink>
 
-        <button className="w-full text-left flex items-center px-4 py-3 text-gray-300 hover:bg-brand-green-light/50 hover:text-white rounded-md transition-colors duration-200">
+        {/* ATUALIZADO: Botão "Sair" com onClick */}
+        <button
+          onClick={handleLogout}
+          className="w-full text-left flex items-center px-4 py-3 text-gray-300 hover:bg-brand-green-light/50 hover:text-white rounded-md transition-colors duration-200"
+        >
           <LogOut className="mr-3 h-5 w-5" />
           Sair
         </button>
@@ -56,58 +69,86 @@ const OperationalSidebar = () => {
   );
 };
 
-// Componente do Cabeçalho Operacional
-const OperationalHeader = ({ user }) => { // Recebe 'user' das props (via AppRoutes)
-    const [weather, setWeather] = useState({ temp: 28, humidity: 45, condition: 'Ensolarado' });
-    const showWaterReminder = weather.temp > 25 || weather.humidity < 50;
+// Componente do Cabeçalho Operacional (ATUALIZADO)
+const OperationalHeader = ({ user }) => {
+  const [weather, setWeather] = useState({ temp: 28, humidity: 45, condition: 'Ensolarado' });
+  const showWaterReminder = weather.temp > 25 || weather.humidity < 50;
 
-    return (
-        <header className="bg-white shadow-md p-4 flex justify-between items-center">
-            <div>
-                 <h1 className="text-xl font-semibold text-gray-700">Painel Operacional</h1>
-            </div>
+  // --- LÓGICA DO AVATAR (ATUALIZADA) ---
+  const [avatarError, setAvatarError] = useState(false);
+  const avatarUrl = user?.id ? `${API_URL}/users/${user.id}/avatar` : null;
 
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <Sun size={20} className="text-yellow-500" />
-                    <div>
-                        <p className="font-semibold">{weather.temp}°C - {weather.condition}</p>
-                        {showWaterReminder && <p className="text-xs text-blue-500 font-bold animate-pulse">Beba água!</p>}
-                    </div>
-                </div>
-                <div className="relative">
-                    <button className="relative text-gray-500 hover:text-gray-800">
-                        <Bell size={22} />
-                        {/* Lógica de notificações pode ser adicionada aqui */}
-                    </button>
-                </div>
-                {/* DADOS DO UTILIZADOR (ATUALIZADO) */}
-                <div className="flex items-center gap-3">
-                    <img
-                        src={user?.avatarUrl || `https://i.pravatar.cc/150?u=${user?.id || 'operational'}`} // Usa avatarUrl se existir
-                        alt="Avatar do Utilizador"
-                        className="h-10 w-10 rounded-full object-cover" // Adicionado object-cover
-                    />
-                    <div>
-                        <p className="font-semibold text-sm text-gray-800">{user?.nome || 'Usuário Operacional'}</p> {/* Usa user.nome */}
-                        <p className="text-xs text-gray-500">Operacional</p>
-                    </div>
-                </div>
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatarUrl]);
+
+  const handleAvatarError = () => {
+    setAvatarError(true);
+  };
+  // --- FIM DA LÓGICA DO AVATAR ---
+
+  return (
+    <header className="bg-white shadow-md p-4 flex justify-between items-center">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-700">Painel Operacional</h1>
+      </div>
+
+      <div className="flex items-center gap-6">
+        {/* ... Clima e Notificações (inalterados) ... */}
+        <div className="flex items-center gap-3 text-sm text-gray-600">
+          <Sun size={20} className="text-yellow-500" />
+          <div>
+            <p className="font-semibold">
+              {weather.temp}°C - {weather.condition}
+            </p>
+            {showWaterReminder && (
+              <p className="text-xs text-blue-500 font-bold animate-pulse">Beba água!</p>
+            )}
+          </div>
+        </div>
+        <div className="relative">
+          <button className="relative text-gray-500 hover:text-gray-800">
+            <Bell size={22} />
+          </button>
+        </div>
+
+        {/* DADOS DO UTILIZADOR (ATUALIZADO) */}
+        <div className="flex items-center gap-3">
+          {avatarUrl && !avatarError ? (
+            <img
+              src={avatarUrl}
+              alt="Avatar do Utilizador"
+              className="h-10 w-10 rounded-full object-cover"
+              onError={handleAvatarError}
+            />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-brand-green-light flex items-center justify-center">
+              <UserIcon className="h-6 w-6 text-white" />
             </div>
-        </header>
-    );
+          )}
+          {/* FIM DA LÓGICA DO AVATAR */}
+
+          <div>
+            <p className="font-semibold text-sm text-gray-800">
+              {user?.nome || 'Usuário Operacional'}
+            </p>
+            <p className="text-xs text-gray-500">Operacional</p>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
 };
 
-
 // O Layout Principal para a Área Operacional
-const OperationalLayout = ({ user }) => { // Recebe user como prop (de AppRoutes)
+const OperationalLayout = ({ user }) => {
   return (
     <div className="flex h-screen bg-gray-100">
       <OperationalSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <OperationalHeader user={user} /> {/* Passa user (operationalUser) para o Header */}
+        <OperationalHeader user={user} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 p-6">
-          <Outlet /> {/* O contexto das rotas pai será passado aqui */}
+          <Outlet />
         </main>
       </div>
     </div>
