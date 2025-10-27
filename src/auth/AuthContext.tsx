@@ -17,18 +17,17 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<void>;
   logout: () => void;
+  setUser: (user: User | null) => void; // Adiciona setUser ao tipo
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  // ✅ HIDRATAÇÃO SÍNCRONA: Carrega do localStorage IMEDIATAMENTE no primeiro render
   const [user, setUser] = useState<User | null>(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
       try {
         const parsed: User = JSON.parse(stored);
-        // Configura header imediatamente
         axios.defaults.headers.common['Authorization'] = `Bearer ${parsed.token}`;
         console.log('✅ Usuário hidratado do localStorage:', parsed.email);
         return parsed;
@@ -44,7 +43,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ INTERCEPTOR 401 (logout automático se token inválido, mas com log para debug)
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (r) => r,
@@ -59,7 +57,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => axios.interceptors.response.eject(interceptor);
   }, [navigate]);
 
-  // ✅ ATUALIZA HEADER QUANDO USER MUDA
   useEffect(() => {
     if (user) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${user.token}`;
@@ -68,11 +65,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [user]);
 
-  // ✅ REDIRECIONAMENTO PÓS-LOGIN
   useEffect(() => {
     if (user && isLoggingIn) {
       const role = user.role.toLowerCase();
-      console.log('Redirecionando para role:', role); // ✅ LOG PARA DEBUG
+      console.log('Redirecionando para role:', role);
       const map: Record<string, string> = {
         admin: '/',
         'admin comum': '/',
@@ -80,25 +76,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         consultant: '/consultant/dashboard',
         client: '/client/dashboard',
         operational: '/operational',
-        operacional: '/operational', // Adicionado para cobrir variação em português
+        operacional: '/operational',
       };
       const target = map[role] ?? '/';
-      console.log('Destino calculado:', target); // ✅ LOG PARA DEBUG
+      console.log('Destino calculado:', target);
       navigate(target);
       setIsLoggingIn(false);
     }
   }, [user, isLoggingIn, navigate]);
 
-  // ✅ LOGIN
   const login = async (email: string, pass: string) => {
-    setUser(null); // ✅ LIMPA USER ANTES DA REQUISIÇÃO (evita estados antigos)
+    setUser(null);
     setIsLoggingIn(true);
     try {
       const { data }: { data: User } = await axios.post(`${API_URL}/auth/login`, {
         email,
         password: pass,
       });
-      console.log('Dados do usuário do backend:', data); // ✅ LOG PARA DEBUG (verifique o 'role' exato aqui)
+      console.log('Dados do usuário do backend:', data);
       setUser(data);
       localStorage.setItem('user', JSON.stringify(data));
       console.log('✅ Login bem-sucedido:', data.email);
@@ -108,7 +103,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // ✅ LOGOUT
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
@@ -118,9 +112,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const isAuthenticated = !!user;
 
-  // ✅ SEM BLOQUEIO DE RENDER: Hidratação síncrona garante que user/isAuthenticated esteja correto no primeiro render
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -136,16 +129,16 @@ export const ProtectedRoute = ({ allowedRoles = [], children }: { allowedRoles?:
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
 
-  console.log('ProtectedRoute: isAuthenticated =', isAuthenticated, 'user.role =', user?.role, 'location =', location.pathname); // ✅ LOG PARA DEBUG
+  console.log('ProtectedRoute: isAuthenticated =', isAuthenticated, 'user.role =', user?.role, 'location =', location.pathname);
 
   if (!isAuthenticated) {
-    console.log('🔒 Redirecionando para /login de', location.pathname); // ✅ LOG PARA DEBUG
+    console.log('🔒 Redirecionando para /login de', location.pathname);
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role.toLowerCase())) {
-    console.warn('Acesso negado para role:', user.role, 'na rota:', location.pathname); // ✅ LOG PARA DEBUG
-    return <Navigate to="/" replace />; // Ou para uma página de erro 403
+    console.warn('Acesso negado para role:', user.role, 'na rota:', location.pathname);
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

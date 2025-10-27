@@ -24,7 +24,7 @@ const Tab = ({ label, isActive, onClick }) => (
 );
 
 const ProfilePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [activeTab, setActiveTab] = useState('dados');
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -50,14 +50,15 @@ const ProfilePage: React.FC = () => {
 
   // Effect to load current user data
   useEffect(() => {
+    console.log('ProfilePage: useEffect triggered with user:', user);
     if (user) {
       setNome(user.nome || '');
       setEmail(user.email || '');
       const backendUrl = getBackendAvatarUrl(user.id);
-      console.log('Setting avatar preview URL:', backendUrl);
+      console.log('ProfilePage: Setting avatar preview URL:', backendUrl);
       setAvatarPreview(backendUrl);
     } else {
-      console.warn('User data not available on component mount.');
+      console.warn('ProfilePage: User data not available on component mount.');
       setAvatarPreview(undefined);
     }
   }, [user, avatarVersion]);
@@ -73,19 +74,27 @@ const ProfilePage: React.FC = () => {
       showNotification('Erro: ID do usuário não encontrado.', 'error');
       return;
     }
+    if (!nome.trim()) {
+      showNotification('O nome não pode estar vazio.', 'error');
+      return;
+    }
     setLoading(true);
     try {
+      console.log('ProfilePage: Enviando PATCH para atualizar nome:', { nome });
       const response = await axios.patch(
         `${API_URL}/users/${user.id}`,
         { nome },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      const updatedUser = { ...user, ...response.data };
+      console.log('ProfilePage: Resposta do backend:', response.data);
+      const updatedUser = { ...user, nome: response.data.nome || nome };
+      console.log('ProfilePage: Updated user:', updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
-      setNome(response.data.nome);
+      setUser(updatedUser); // Atualiza o AuthContext
+      setNome(response.data.nome || nome);
       showNotification('Nome atualizado com sucesso!', 'success');
     } catch (err: any) {
-      console.error('Erro ao atualizar nome:', err);
+      console.error('ProfilePage: Erro ao atualizar nome:', err.response?.data || err.message);
       showNotification(err.response?.data?.message || 'Erro ao atualizar o nome.', 'error');
     } finally {
       setLoading(false);
@@ -98,7 +107,7 @@ const ProfilePage: React.FC = () => {
       showNotification('Erro: ID do usuário não encontrado.', 'error');
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (该新密码 !== confirmPassword) {
       showNotification('As novas palavras-passe não coincidem.', 'error');
       return;
     }
@@ -108,27 +117,27 @@ const ProfilePage: React.FC = () => {
     }
     setLoading(true);
     try {
-      console.log('Tentando verificar a senha atual...');
+      console.log('ProfilePage: Tentando verificar a senha atual...');
       await axios.post(
         `${API_URL}/auth/verify-password`,
         { userId: user.id, currentPassword },
       );
-      console.log('Senha atual verificada com sucesso.');
+      console.log('ProfilePage: Senha atual verificada com sucesso.');
 
-      console.log('Tentando atualizar para a nova senha...');
+      console.log('ProfilePage: Tentando atualizar para a nova senha...');
       await axios.patch(
         `${API_URL}/users/${user.id}`,
         { password: newPassword },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      console.log('Nova senha atualizada com sucesso no backend.');
+      console.log('ProfilePage: Nova senha atualizada com sucesso no backend.');
 
       showNotification('Palavra-passe alterada com sucesso!', 'success');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      console.error('Erro no processo de alteração de senha:', err.response?.data || err.message);
+      console.error('ProfilePage: Erro no processo de alteração de senha:', err.response?.data || err.message);
       showNotification(err.response?.data?.message || 'Erro ao alterar a palavra-passe. Verifique a senha atual.', 'error');
     } finally {
       setLoading(false);
@@ -169,19 +178,22 @@ const ProfilePage: React.FC = () => {
     formData.append('avatar', avatarFile);
     setLoading(true);
     try {
+      console.log('ProfilePage: Enviando PATCH para atualizar avatar');
       const response = await axios.patch(`${API_URL}/users/${user.id}`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
         },
       });
+      console.log('ProfilePage: Resposta do backend (avatar):', response.data);
       const updatedUser = { ...user, ...response.data };
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser); // Atualiza o AuthContext
       showNotification('Foto de perfil atualizada!', 'success');
       setAvatarFile(null);
       setAvatarVersion(prev => prev + 1);
     } catch (err: any) {
-      console.error('Erro ao enviar avatar:', err.response?.data || err.message);
+      console.error('ProfilePage: Erro ao enviar avatar:', err.response?.data || err.message);
       showNotification(err.response?.data?.message || 'Erro ao enviar a foto.', 'error');
       setAvatarPreview(getBackendAvatarUrl(user.id));
     } finally {
@@ -298,7 +310,7 @@ const ProfilePage: React.FC = () => {
                   src={avatarPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.nome || user?.email || '?')}&background=random`}
                   alt="Preview do Avatar"
                   onError={(e) => {
-                    console.error('Erro ao carregar imagem do avatar:', avatarPreview);
+                    console.error('ProfilePage: Erro ao carregar imagem do avatar:', avatarPreview);
                     (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.nome || user?.email || '?')}&background=random&color=fff`;
                   }}
                   className="h-24 w-24 rounded-full object-cover bg-gray-200 ring-1 ring-gray-300"
