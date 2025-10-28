@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
 
+const API_URL = import.meta.env.VITE_BACKEND_URL;
+
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,32 +17,54 @@ const LoginPage = () => {
     setIsLoading(true);
     try {
       await login(email, password);
-      // O redirecionamento acontece dentro da função 'login' no AuthContext
-    } catch (err) {
-      setError(err.message);
+    } catch (err: any) {
+      setError(err.message || 'Erro desconhecido');
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   const handleRecoverSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    // Simulação de chamada de API para recuperação de senha
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
-    console.log(`Pedido de recuperação para: ${email}`);
-    setIsLoading(false);
-    setView('success');
+
+    try {
+      const response = await fetch(`${API_URL}/users/request-password-recovery`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Ocorreu um erro. Tente novamente.');
+      }
+
+      setView('success');
+    } catch (err: any) {
+      setError(err.message || 'Não foi possível ligar ao servidor.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderLoginView = () => (
     <>
       <div className="text-center">
-        <img src="/norte-logo.png" alt="Logótipo Norte Rios" className="w-28 mx-auto mb-4" />
+        <img
+          src="/norte-logo.png"
+          alt="Logótipo Norte Rios"
+          className="w-28 mx-auto mb-4"
+        />
         <h2 className="text-2xl font-bold text-white">Aceda à sua conta</h2>
-        <p className="mt-2 text-sm text-gray-200">Bem-vindo de volta! Por favor, insira os seus dados.</p>
+        <p className="mt-2 text-sm text-gray-200">
+          Bem-vindo de volta! Por favor, insira os seus dados.
+        </p>
       </div>
+
       <form className="space-y-4" onSubmit={handleLoginSubmit}>
         <div>
           <label htmlFor="email" className="text-sm font-medium text-gray-200">
@@ -58,8 +82,12 @@ const LoginPage = () => {
             placeholder="seu.email@exemplo.com"
           />
         </div>
+
         <div>
-          <label htmlFor="password" className="text-sm font-medium text-gray-200">
+          <label
+            htmlFor="password"
+            className="text-sm font-medium text-gray-200"
+          >
             Palavra-passe
           </label>
           <input
@@ -74,10 +102,23 @@ const LoginPage = () => {
             placeholder="Sua palavra-passe"
           />
         </div>
+
         <div className="text-right">
-            <button type="button" onClick={() => setView('recover')} className="text-sm text-gray-300 hover:text-white hover:underline">Esqueceu a sua palavra-passe?</button>
+          <button
+            type="button"
+            onClick={() => setView('recover')}
+            className="text-sm text-gray-300 hover:text-white hover:underline"
+          >
+            Esqueceu a sua palavra-passe?
+          </button>
         </div>
-        {error && <p className="text-sm text-red-400 bg-red-900/50 p-2 rounded-md text-center">{error}</p>}
+
+        {error && (
+          <p className="text-sm text-red-400 bg-red-900/50 p-2 rounded-md text-center">
+            {error}
+          </p>
+        )}
+
         <div>
           <button
             type="submit"
@@ -92,14 +133,20 @@ const LoginPage = () => {
   );
 
   const renderRecoverView = () => (
-     <>
+    <>
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">Recuperar Palavra-passe</h2>
-        <p className="mt-2 text-sm text-gray-200">Insira o seu email para receber as instruções.</p>
+        <p className="mt-2 text-sm text-gray-200">
+          Insira o seu email para receber as instruções.
+        </p>
       </div>
+
       <form className="space-y-4" onSubmit={handleRecoverSubmit}>
         <div>
-          <label htmlFor="recover-email" className="text-sm font-medium text-gray-200">
+          <label
+            htmlFor="recover-email"
+            className="text-sm font-medium text-gray-200"
+          >
             Email
           </label>
           <input
@@ -114,7 +161,13 @@ const LoginPage = () => {
             placeholder="seu.email@exemplo.com"
           />
         </div>
-         {error && <p className="text-sm text-red-400 bg-red-900/50 p-2 rounded-md text-center">{error}</p>}
+
+        {error && (
+          <p className="text-sm text-red-400 bg-red-900/50 p-2 rounded-md text-center">
+            {error}
+          </p>
+        )}
+
         <div>
           <button
             type="submit"
@@ -124,28 +177,42 @@ const LoginPage = () => {
             {isLoading ? 'A enviar...' : 'Enviar Email'}
           </button>
         </div>
-         <div className="text-center">
-            <button type="button" onClick={() => { setView('login'); setError(''); }} className="text-sm text-gray-300 hover:text-white hover:underline">Voltar para o Login</button>
+
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setView('login');
+              setError('');
+            }}
+            className="text-sm text-gray-300 hover:text-white hover:underline"
+          >
+            Voltar para o Login
+          </button>
         </div>
       </form>
     </>
   );
 
   const renderSuccessView = () => (
-     <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Verifique o seu Email</h2>
-        <p className="mt-4 text-gray-200">
-          Se existir uma conta associada a <strong>{email}</strong>, enviámos as instruções para recuperar a sua palavra-passe.
-        </p>
-         <button
-            onClick={() => { setView('login'); setEmail(''); }}
-            className="mt-6 w-full px-4 py-3 font-semibold text-white bg-brand-green-dark rounded-lg hover:bg-brand-green-light focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green-light transition-colors"
-          >
-            Voltar para o Login
-        </button>
-      </div>
-  );
+    <div className="text-center">
+      <h2 className="text-2xl font-bold text-white">Verifique o seu Email</h2>
+      <p className="mt-4 text-gray-200">
+        Se existir uma conta associada a <strong>{email}</strong>, enviámos as
+        instruções para recuperar a sua palavra-passe.
+      </p>
 
+      <button
+        onClick={() => {
+          setView('login');
+          setEmail('');
+        }}
+        className="mt-6 w-full px-4 py-3 font-semibold text-white bg-brand-green-dark rounded-lg hover:bg-brand-green-light focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green-light transition-colors"
+      >
+        Voltar para o Login
+      </button>
+    </div>
+  );
 
   return (
     <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-brand-green-dark to-brand-teal font-sans overflow-hidden">
@@ -166,39 +233,41 @@ const LoginPage = () => {
           100% { transform: translate(20%, 80%) scale(0.9); }
         }
       `}</style>
-      
+
       <div className="absolute top-0 left-0 w-full h-full z-0">
-        <div 
-          className="absolute bg-yellow-300/20 rounded-full" 
-          style={{ 
-            width: '600px', 
-            height: '600px', 
-            top: '0%', 
-            left: '0%', 
+        <div
+          className="absolute bg-yellow-300/20 rounded-full"
+          style={{
+            width: '600px',
+            height: '600px',
+            top: '0%',
+            left: '0%',
             filter: 'blur(140px)',
-            animation: 'wave1 30s infinite ease-in-out alternate' 
+            animation: 'wave1 30s infinite ease-in-out alternate',
           }}
         ></div>
-        <div 
-          className="absolute bg-brand-orange/20 rounded-full" 
-          style={{ 
-            width: '700px', 
-            height: '700px', 
-            top: '50%', 
+
+        <div
+          className="absolute bg-brand-orange/20 rounded-full"
+          style={{
+            width: '700px',
+            height: '700px',
+            top: '50%',
             left: '50%',
-            filter: 'blur(160px)', 
-            animation: 'wave2 35s infinite ease-in-out alternate-reverse' 
+            filter: 'blur(160px)',
+            animation: 'wave2 35s infinite ease-in-out alternate-reverse',
           }}
         ></div>
-        <div 
-          className="absolute bg-teal-300/20 rounded-full" 
-          style={{ 
-            width: '550px', 
-            height: '550px', 
-            top: '20%', 
-            left: '80%', 
+
+        <div
+          className="absolute bg-teal-300/20 rounded-full"
+          style={{
+            width: '550px',
+            height: '550px',
+            top: '20%',
+            left: '80%',
             filter: 'blur(120px)',
-            animation: 'wave3 28s infinite ease-in-out alternate' 
+            animation: 'wave3 28s infinite ease-in-out alternate',
           }}
         ></div>
       </div>

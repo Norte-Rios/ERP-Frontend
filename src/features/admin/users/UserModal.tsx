@@ -12,7 +12,13 @@ interface UserModalProps {
   loading: boolean; // Adicionado para feedback
 }
 
-const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEdit, loading }) => {
+const UserModal: React.FC<UserModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  userToEdit,
+  loading,
+}) => {
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -29,7 +35,12 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
         email: userToEdit.email,
         role: userToEdit.role,
         // [CORREÇÃO] Garanta que o status vindo do userToEdit seja 'ativo' ou 'inativo'
-        status: userToEdit.status === 'Active' ? 'ativo' : userToEdit.status === 'Inactive' ? 'inativo' : 'ativo',
+        status:
+          userToEdit.status === 'Active'
+            ? 'ativo'
+            : userToEdit.status === 'Inactive'
+            ? 'inativo'
+            : 'ativo',
       });
     } else {
       // Reset para valores padrão ao criar novo
@@ -44,78 +55,155 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
 
   if (!isOpen) return null;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    // Use 'name' (nome do campo no HTML) e 'value'
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
-    // Validação básica (pode adicionar mais)
     if (!formData.nome || !formData.email) {
-        alert("Nome e Email são obrigatórios.");
-        return;
+      alert('Nome e Email são obrigatórios.');
+      return;
     }
 
-    // Garante que o status enviado é 'ativo' ou 'inativo'
-    const statusToSend = formData.status === 'Active' ? 'ativo' : formData.status === 'Inactive' ? 'inativo' : formData.status;
+    const statusToSend =
+      formData.status === 'Active'
+        ? 'ativo'
+        : formData.status === 'Inactive'
+        ? 'inativo'
+        : formData.status;
 
-    // Se userToEdit existe, estamos a editar, passamos o ID junto
     const userDataToSend = userToEdit
-        ? { ...userToEdit, ...formData, status: statusToSend } // Envia 'ativo'/'inativo'
-        : { ...formData, status: statusToSend }; // Envia 'ativo'/'inativo'
+      ? { ...userToEdit, ...formData, status: statusToSend }
+      : { ...formData, status: statusToSend };
 
     try {
-        await onSave(userDataToSend); // Chama a função do pai (que faz o POST/PATCH)
-        // onClose(); // O pai deve chamar onClose após sucesso
+      await onSave(userDataToSend);
+      // onClose(); // O pai deve chamar onClose após sucesso
     } catch (error) {
-        console.error("Erro no handleSave do modal:", error);
-        // O erro é tratado no pai, que pode mostrar uma notificação
+      console.error('Erro no handleSave do modal:', error);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800">{userToEdit ? 'Editar Utilizador' : 'Novo Utilizador'}</h3>
-          <button onClick={onClose} disabled={loading} className="p-1 rounded-full hover:bg-gray-200">
+          <h3 className="text-xl font-bold text-gray-800">
+            {userToEdit ? 'Editar Utilizador' : 'Novo Utilizador'}
+          </h3>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="p-1 rounded-full hover:bg-gray-200"
+          >
             <X size={20} />
           </button>
         </div>
+
         <div className="space-y-4">
           <div>
-            <label htmlFor="nome" className="block text-sm font-medium text-gray-700">Nome</label>
-            <input id="nome" type="text" name="nome" value={formData.nome} onChange={handleChange} className="mt-1 block w-full input-style" />
+            <label
+              htmlFor="nome"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Nome
+            </label>
+            <input
+              id="nome"
+              type="text"
+              name="nome"
+              value={formData.nome}
+              onChange={handleChange}
+              className="mt-1 block w-full input-style"
+            />
           </div>
+
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-            <input id="email" type="email" name="email" value={formData.email} onChange={handleChange} className="mt-1 block w-full input-style" />
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="mt-1 block w-full input-style"
+            />
           </div>
+
           <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700">Perfil</label>
-            <select id="role" name="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full input-style">
-              {/* Os valores aqui devem corresponder exatamente aos permitidos na sua interface User['role'] */}
+            <label
+              htmlFor="role"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Perfil
+            </label>
+            <select
+              id="role"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="mt-1 block w-full input-style"
+            >
               <option value="admin master">Admin Master</option>
-              <option value="admin comum">Admin</option> {/* Corrigido de 'admin comum' */}
+              <option value="admin comum">Admin</option>
               <option value="operational">Operational</option>
               <option value="consultant">Consultant</option>
               <option value="client">Client</option>
             </select>
           </div>
+
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
-            <select id="status" name="status" value={formData.status} onChange={handleChange} className="mt-1 block w-full input-style">
-              {/* [CORREÇÃO] Os 'value' são 'ativo' e 'inativo' para enviar ao backend */}
-              <option value="ativo">Active</option> {/* Texto exibido: Active */}
-              <option value="inativo">Inactive</option> {/* Texto exibido: Inactive */}
+            <label
+              htmlFor="status"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Status
+            </label>
+            <select
+              id="status"
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="mt-1 block w-full input-style"
+            >
+              <option value="ativo">Active</option>
+              <option value="inativo">Inactive</option>
             </select>
           </div>
         </div>
+
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} disabled={loading} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-          <button onClick={handleSave} disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold disabled:opacity-50">
-            {loading ? (userToEdit ? 'Atualizando...' : 'Criando...') : 'Salvar'}
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold disabled:opacity-50"
+          >
+            {loading
+              ? userToEdit
+                ? 'Atualizando...'
+                : 'Criando...'
+              : 'Salvar'}
           </button>
         </div>
       </div>
