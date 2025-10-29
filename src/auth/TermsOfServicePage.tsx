@@ -16,7 +16,7 @@ const TermsOfServicePage = () => {
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">1. Aceitação dos Termos</h2>
       <p className="mb-3 text-gray-700">
-        Bem-vindo(a) ao <strong>[Nome da Sua Aplicação]</strong> (o "Serviço"). Estes Termos de Serviço ("Termos") regem o seu acesso e uso da nossa plataforma. Ao acessar, se cadastrar ou usar o Serviço, você ("Usuário") concorda em cumprir e se vincular integralmente a estes Termos.
+        Bem-vindo(a) ao <strong>ERP-Norte</strong> (o "Serviço"). Estes Termos de Serviço ("Termos") regem o seu acesso e uso da nossa plataforma. Ao acessar, se cadastrar ou usar o Serviço, você ("Usuário") concorda em cumprir e se vincular integralmente a estes Termos.
       </p>
       <p className="mb-3 text-gray-700">
         Se você não concorda com qualquer parte destes Termos, você não deve acessar ou usar o Serviço.
@@ -66,7 +66,7 @@ const TermsOfServicePage = () => {
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">5. Propriedade Intelectual</h2>
       <p className="mb-3 text-gray-700">
-        <strong>a. Nosso Conteúdo:</strong> Todo o software, texto, imagens, marcas e logotipos usados no Serviço são de propriedade de <strong>[Nome da Sua Aplicação]</strong> ou de seus licenciadores e são protegidos por leis de direitos autorais e marcas registradas.
+        <strong>a. Nosso Conteúdo:</strong> Todo o software, texto, imagens, marcas e logotipos usados no Serviço são de propriedade de <strong>ERP-Norte</strong> ou de seus licenciadores e são protegidos por leis de direitos autorais e marcas registradas.
       </p>
       <p className="mb-3 text-gray-700">
         <strong>b. Seu Conteúdo:</strong> Você retém a propriedade de todos os dados e informações que você envia ao Serviço ("Seu Conteúdo"). Você nos concede uma licença não exclusiva, mundial e isenta de royalties para usar, copiar, modificar e exibir Seu Conteúdo apenas com o propósito de fornecer o Serviço a você.
@@ -77,7 +77,7 @@ const TermsOfServicePage = () => {
         O SERVIÇO É FORNECIDO "COMO ESTÁ" (AS IS) E "CONFORME DISPONÍVEL" (AS AVAILABLE), SEM GARANTIAS DE QUALQUER TIPO.
       </p>
       <p className="mb-3 text-gray-700">
-        EM NENHUMA CIRCUNSTÂNCIA <strong>[Nome da Sua Aplicação]</strong> SERÁ RESPONSÁVEL POR QUAISQUER DANOS INDIRETOS, INCIDENTAIS, ESPECIAIS, CONSEQUENCIAIS OU PUNITIVOS (INCLUINDO PERDA DE DADOS, RECEITA OU LUCROS) DECORRENTES DO USO OU DA INCAPACIDADE DE USAR O SERVIÇO, MESMO QUE TENHAMOS SIDO AVISADOS DA POSSIBILIDADE DESSES DANOS.
+        EM NENHUMA CIRCUNSTÂNCIA <strong>ERP-Norte</strong> SERÁ RESPONSÁVEL POR QUAISQUER DANOS INDIRETOS, INCIDENTAIS, ESPECIAIS, CONSEQUENCIAIS OU PUNITIVOS (INCLUINDO PERDA DE DADOS, RECEITA OU LUCROS) DECORRENTES DO USO OU DA INCAPACIDADE DE USAR O SERVIÇO, MESMO QUE TENHAMOS SIDO AVISADOS DA POSSIBILIDADE DESSES DANOS.
       </p>
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">7. Rescisão</h2>
@@ -93,7 +93,7 @@ const TermsOfServicePage = () => {
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">9. Contato</h2>
       <p className="text-gray-700">
         Se você tiver alguma dúvida sobre estes Termos de Serviço, entre em contato conosco: 
-        <strong> [Seu E-mail de Contato]</strong>.
+        <strong> suporte@norterios.com.br</strong>.
       </p>
     </div>
   );

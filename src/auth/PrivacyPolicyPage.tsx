@@ -40,7 +40,7 @@ const PrivacyPolicyPage = () => {
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">4. Requisitos Específicos da API do Google</h2>
       <p className="mb-3 text-gray-700">
-        O uso e a transferência de informações recebidas das APIs do Google para qualquer outro aplicativo por <strong>[Nome da Sua Aplicação]</strong> aderirão à 
+        O uso e a transferência de informações recebidas das APIs do Google para qualquer outro aplicativo por <strong>ERP-Norte</strong> aderirão à 
         <a 
           href="https://developers.google.com/terms/api-services-user-data-policy" 
           target="_blank" 
@@ -56,7 +56,7 @@ const PrivacyPolicyPage = () => {
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">5. Seus Direitos e Controle</h2>
       <p className="mb-3 text-gray-700">
-        Você pode revogar o acesso do <strong>[Nome da Sua Aplicação]</strong> à sua Conta Google a qualquer momento, visitando a página de 
+        Você pode revogar o acesso do <strong>ERP-Norte</strong> à sua Conta Google a qualquer momento, visitando a página de 
         <a 
           href="https://myaccount.google.com/permissions" 
           target="_blank" 
@@ -69,7 +69,7 @@ const PrivacyPolicyPage = () => {
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">6. Contato</h2>
       <p className="text-gray-700">
-        Se você tiver alguma dúvida sobre esta Política de Privacidade, entre em contato conosco: <strong>[Seu E-mail de Contato]</strong>.
+        Se você tiver alguma dúvida sobre esta Política de Privacidade, entre em contato conosco: <strong>suporte@norterios.com.br</strong>.
       </p>
     </div>
   );
