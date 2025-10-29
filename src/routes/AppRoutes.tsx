@@ -3,6 +3,10 @@ import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../auth/AuthContext.tsx'; 
 // Auth
 import { useAuth } from '../auth/AuthContext.tsx'; 
+import PrivacyPolicyPage from '../auth/PrivacyPolicyPage.tsx';
+
+import TermsOfServicePage from '../auth/TermsOfServicePage.tsx';
+
 
 import LoginPage from '../auth/LoginPage.tsx'; 
 import SetPasswordPage from '../auth/SetPasswordPage.tsx'; // <-- 1. IMPORTA A NOVA PÁGINA
@@ -155,6 +159,10 @@ const AppRoutes = (props: AppRoutesProps) => {
       
       {/* 2. ADICIONA A NOVA ROTA PÚBLICA AQUI */}
       <Route path="/set-password/:id" element={<SetPasswordPage />} />
+
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} /> 
+      <Route path="/terms-of-service" element={<TermsOfServicePage />} /> {/* <--- NOVA ROTA */}{/* <--- NOVA ROTA */}
+
 
       {/* Wrapper de Rotas Protegidas */}
       <Route
