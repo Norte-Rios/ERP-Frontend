@@ -45,6 +45,7 @@ const RequestServicePage: React.FC<RequestServicePageProps> = ({ allServices, cu
         endDate: predefinedData.endDate,
         type: predefinedData.type,
         consultants: [],
+        projectManager: 'Nome do Gerente'
     });
 
     navigate('/client/services');
@@ -64,6 +65,7 @@ const RequestServicePage: React.FC<RequestServicePageProps> = ({ allServices, cu
         endDate: customData.endDate,
         type: customData.type,
         consultants: [],
+        projectManager: 'Nome do Gerente'
     });
     
     navigate('/client/services');

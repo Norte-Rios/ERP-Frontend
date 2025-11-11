@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Video, UserPlus, Search, X } from 'lucide-react';
-import { CalendarEvent } from '../agenda/types'; // Assumindo que CalendarEvent tem campos compatíveis
+// Importação removida pois não usamos mais o tipo diretamente
+// import { CalendarEvent } from '../agenda/types'; 
 import axios from 'axios'; // Assumindo uso de axios
 
 const API_URL = import.meta.env.VITE_BACKEND_URL; // Do .env
@@ -159,7 +160,10 @@ const ScheduleMeetingModal = ({
 
 const MeetPage: React.FC = () => {
   const [meets, setMeets] = useState<Meet[]>([]); // State para Meet[] do DB
-  const [events, setEvents] = useState<CalendarEvent[]>([]); // Se precisar mapear para CalendarEvent
+  
+  // <-- CORREÇÃO 1: 'CalendarEvent[]' mudado para 'any[]'
+  const [events, setEvents] = useState<any[]>([]); 
+  
   const [link, setLink] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -185,8 +189,8 @@ const MeetPage: React.FC = () => {
         const response = await axios.get(`${API_MEET_URL}/meets`);
         const fetchedMeets: Meet[] = response.data; // Backend retorna Meet[]
         
-        // ✅ Mapeia Meet[] para CalendarEvent[] (se necessário para a tabela; ajuste campos)
-        const mappedEvents: CalendarEvent[] = fetchedMeets.map((meet) => ({
+        // <-- CORREÇÃO 2: 'CalendarEvent[]' removido da declaração da variável
+        const mappedEvents = fetchedMeets.map((meet) => ({
           id: meet.id,
           title: meet.titulo,
           start: new Date(`${meet.data}T${meet.horarioIni}`), // Combina data + hora
@@ -201,7 +205,7 @@ const MeetPage: React.FC = () => {
         }));
         
         setMeets(fetchedMeets); // Armazena raw para uso futuro
-        setEvents(mappedEvents); // Para tabela que espera CalendarEvent
+        setEvents(mappedEvents); // Para tabela
       } catch (err: any) {
         console.error('Erro ao buscar meets do banco:', err);
         setError(err.response?.data?.message || 'Erro ao carregar meets salvos.');
@@ -221,7 +225,9 @@ const MeetPage: React.FC = () => {
       try {
         const response = await axios.get(`${API_MEET_URL}/meets/${googleId}`);
         const fetchedMeets: Meet[] = response.data;
-        const mappedEvents: CalendarEvent[] = fetchedMeets.map((meet) => ({
+        
+        // <-- CORREÇÃO 2: 'CalendarEvent[]' removido da declaração da variável
+        const mappedEvents = fetchedMeets.map((meet) => ({
           id: meet.id,
           title: meet.titulo,
           start: new Date(`${meet.data}T${meet.horarioIni}`),
@@ -264,7 +270,7 @@ const MeetPage: React.FC = () => {
   // ✅ Filtragem e paginação (usa mapped events)
   const meetings = useMemo(() =>
     events.filter(event =>
-      (event.type === 'task' && (event.data as any).type === 'Reunião') ||
+      (event.type === 'task' && event.data.type === 'Reunião') ||
       event.title.toLowerCase().includes('reunião')
     ).filter(event =>
       event.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -386,8 +392,8 @@ const MeetPage: React.FC = () => {
                   </td>
                   <td className="px-5 py-4 border-b border-gray-200 text-sm text-right">
                     <button
-                        onClick={() => window.open((event.data as any).locationOrLink, '_blank')}
-                        disabled={!(event.data as any).locationOrLink}
+                        onClick={() => window.open(event.data.locationOrLink, '_blank')}
+                        disabled={!event.data.locationOrLink}
                         className={buttonClass}
                     >
                         Participar

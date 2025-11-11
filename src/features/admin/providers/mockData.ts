@@ -33,6 +33,16 @@ export const mockServiceProviders: ServiceProvider[] = [
         professionals: ['Ricardo Mendes'],
       }
     ],
+
+    // --- CORREÇÃO (Propriedades Faltando) ---
+    professionals: ['Ricardo Mendes', 'Sofia Bernardes'], // Lista de profissionais principais
+    bankDetails: {
+      bank: 'Banco Inter',
+      agency: '0001',
+      account: '1234567-8',
+      pix: 'pix@alfatreinamentos.com',
+    }
+    // --- FIM DA CORREÇÃO ---
   },
   {
     id: 'PROV-02',
@@ -65,5 +75,15 @@ export const mockServiceProviders: ServiceProvider[] = [
         professionals: ['Lucas Martins'],
       }
     ],
+
+    // --- CORREÇÃO (Propriedades Faltando) ---
+    professionals: ['Lucas Martins', 'Ana Pereira'], // Lista de profissionais principais
+    bankDetails: {
+      bank: 'Banco Nubank',
+      agency: '0001',
+      account: '8765432-1',
+      pix: 'pix@betasolucoes.dev',
+    }
+    // --- FIM DA CORREÇÃO ---
   },
 ];

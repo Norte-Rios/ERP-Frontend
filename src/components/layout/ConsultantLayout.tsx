@@ -59,32 +59,36 @@ const ConsultantSidebar = () => {
 };
 
 // Componente do Cabeçalho do Consultor (AGORA COM NOTIFICAÇÕES)
-const ConsultantHeader = ({ consultantName, services, documents, consultantId }) => {
+const ConsultantHeader = ({ consultantName, services, documents, consultantId }: any) => { // 'any' adicionado para simplicidade
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-    const avatarUrl = user?.id ? `${API_URL}/users/${user.id}/avatar` : null;
+    
+    // <-- CORREÇÃO AQUI
+    // A variável 'user' não existia. Usamos 'consultantId' que é recebido nas props.
+    const avatarUrl = consultantId ? `${API_URL}/users/${consultantId}/avatar` : null;
+    
     const notifications = useMemo(() => {
         const alerts: { text: string, path: string }[] = [];
 
         // 1. Novos serviços pendentes
-        const pendingServices = services.filter(s => s.status === 'Pendente');
+        const pendingServices = services.filter((s: Service) => s.status === 'Pendente');
         if (pendingServices.length > 0) {
             alerts.push({ text: `${pendingServices.length} novo(s) serviço(s) pendente(s).`, path: '/consultant/services' });
         }
 
         // 2. Planos de trabalho rejeitados
-        const rejectedWorkPlans = services.filter(s => s.workPlan?.status === 'Rejeitado');
+        const rejectedWorkPlans = services.filter((s: Service) => s.workPlan?.status === 'Rejeitado');
         if (rejectedWorkPlans.length > 0) {
             alerts.push({ text: `${rejectedWorkPlans.length} plano(s) de trabalho para rever.`, path: '/consultant/services' });
         }
 
         // 3. Relatórios finais rejeitados
-        const rejectedReports = services.filter(s => s.finalReport?.status === 'Rejeitado');
+        const rejectedReports = services.filter((s: Service) => s.finalReport?.status === 'Rejeitado');
          if (rejectedReports.length > 0) {
             alerts.push({ text: `${rejectedReports.length} relatório(s) final(is) para rever.`, path: '/consultant/services' });
         }
 
         // 4. Novos documentos recebidos (que não foram enviados pelo próprio consultor)
-        const newDocuments = documents.filter(doc => doc.sender.name !== consultantName && doc.status !== 'Visualizado' && doc.status !== 'Aprovado');
+        const newDocuments = documents.filter((doc: Document) => doc.sender.name !== consultantName && doc.status !== 'Visualizado' && doc.status !== 'Aprovado');
         if (newDocuments.length > 0) {
              alerts.push({ text: `${newDocuments.length} novo(s) documento(s) recebido(s).`, path: '/consultant/documents' });
         }
@@ -133,9 +137,9 @@ const ConsultantHeader = ({ consultantName, services, documents, consultantId })
                 {/* Perfil do Consultor */}
                 <div className="flex items-center gap-3">
                     <img 
-                        src={avatarUrl}
+                        src={avatarUrl || '/avatar-placeholder.png'} // Adicionado um placeholder
                         alt="Avatar do Consultor"
-                        className="h-10 w-10 rounded-full"
+                        className="h-10 w-10 rounded-full bg-gray-200" // Cor de fundo para placeholder
                     />
                     <div>
                         <p className="font-semibold text-sm text-gray-800">{consultantName}</p>
@@ -156,11 +160,14 @@ const ConsultantLayout = () => {
     return <div>A carregar...</div>;
   }
 
-  const currentConsultant = context.consultants[0];
+  // (Sugestão: em vez de [0], você deve buscar o consultor logado pelo ID)
+  const currentConsultant = context.consultants[0]; 
 
   // Filtra os dados específicos para o consultor logado
-  const consultantServices = context.services.filter(service => service.consultants.includes(currentConsultant.fullName));
-  const consultantDocuments = context.documents.filter(doc => 
+  const consultantServices = context.services.filter((service: Service) => 
+    Array.isArray(service.consultants) && service.consultants.includes(currentConsultant.fullName)
+  );
+  const consultantDocuments = context.documents.filter((doc: Document) => 
     (doc.recipient.type === 'Consultor' && doc.recipient.id === currentConsultant.id) ||
     (doc.sender.name === currentConsultant.fullName)
   );

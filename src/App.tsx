@@ -98,6 +98,7 @@ function App() {
 
   const handleAddTaskComment = (taskId: string, commentText: string, author: string = 'Admin') => {
     const newComment: Comment = {
+      id: `COMMENT-${Date.now()}`, // <-- CORREÇÃO 1: 'id' adicionado
       author,
       date: new Date().toISOString(),
       text: commentText,
@@ -105,7 +106,8 @@ function App() {
     const newBoard = { ...taskBoard };
     const task = newBoard.tasks[taskId];
     if (task) {
-      task.comments = [...(task.comments || []), newComment];
+      // CORREÇÃO 2: 'comments' mudado para 'coment' para bater com seu types.ts
+      task.coment = [...(task.coment || []), newComment]; 
       setTaskBoard(newBoard);
     }
   };
@@ -114,14 +116,14 @@ function App() {
     const newTagsObject = updatedTags.reduce((acc, tag) => {
         acc[tag.id] = tag;
         return acc;
-    }, {});
+    }, {} as Record<string, Tag>);
     setTaskBoard(prevBoard => ({
         ...prevBoard,
         tags: newTagsObject
     }));
   };
 
-  const handleAddLogEntry = (text: string, author) => {
+  const handleAddLogEntry = (text: string, author: any) => { // 'any' adicionado
     const newEntry: LogEntry = {
         id: `LOG-${Date.now()}`,
         author,
@@ -132,7 +134,7 @@ function App() {
     setLogEntries(prev => [newEntry, ...prev]);
   };
 
-  const handleAddLogComment = (entryId: string, text: string, author) => {
+  const handleAddLogComment = (entryId: string, text: string, author: any) => { // 'any' adicionado
     const newComment: LogComment = {
         id: `COMMENT-${Date.now()}`,
         author,

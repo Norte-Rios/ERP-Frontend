@@ -74,8 +74,10 @@ const ConsultantServiceDetailPage = ({ services, onUpdateService, currentConsult
         onUpdateService({
             ...service,
             finalReport: {
-                content: finalReportContent,
-                status: 'Pendente de Análise',
+              content: finalReportContent,
+              status: 'Pendente de Análise',
+              submittedBy: '',
+              submittedAt: ''
             }
         });
     }

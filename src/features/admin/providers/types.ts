@@ -25,4 +25,11 @@ export interface ServiceProvider {
   };
   // A lista de profissionais foi substituída por um catálogo de serviços
   offeredServices: OfferedService[]; 
+  professionals: string[]; // <-- ADICIONE ESTA
+  bankDetails: {          // <-- ADICIONE ESTE OBJETO
+    bank: string;
+    agency: string;
+    account: string;
+    pix: string;
+  };
 }

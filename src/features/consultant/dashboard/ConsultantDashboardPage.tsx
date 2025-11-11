@@ -1,9 +1,27 @@
 import React, { useMemo } from 'react';
 import { Briefcase, CheckSquare, DollarSign, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+// --- (Imports Adicionados) ---
+import { Task, TaskBoard, Column } from '../../admin/tasks/types'; // (Ajuste o caminho se necessário)
+import { Service } from '../../admin/services/types'; // (Ajuste o caminho se necessário)
 
-// Card de métrica reutilizável
-const MetricCard = ({ title, value, icon: Icon, color }) => (
+// (Tipo Payment assumido, já que não temos o types.ts dele)
+interface Payment {
+  id: string;
+  status: 'Pendente' | 'Agendado' | 'Pago';
+  value: number;
+}
+// --- (Fim dos Imports) ---
+
+
+// Card de métrica reutilizável (Tipado)
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  color: string;
+}
+const MetricCard = ({ title, value, icon: Icon, color }: MetricCardProps) => (
   <div className={`p-6 rounded-lg shadow-md flex items-start justify-between ${color}`}>
     <div>
       <h3 className="text-sm font-medium text-white/80">{title}</h3>
@@ -13,24 +31,35 @@ const MetricCard = ({ title, value, icon: Icon, color }) => (
   </div>
 );
 
-const ConsultantDashboardPage = ({ consultantName, tasks, services, payments, taskBoard }) => {
-  const formatCurrency = (value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Props da Página (Tipado)
+interface ConsultantDashboardPageProps {
+  consultantName: string;
+  tasks: Task[];
+  services: Service[];
+  payments: Payment[];
+  taskBoard: TaskBoard;
+}
+
+const ConsultantDashboardPage = ({ consultantName, tasks, services, payments, taskBoard }: ConsultantDashboardPageProps) => {
+  const formatCurrency = (value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const { pendingTasks, activeServices, pendingPaymentsValue } = useMemo(() => {
+    // CORREÇÃO: 'c' agora é 'Column' e 'task' é 'Task'.
+    // Os erros TS2339 (title, id, taskIds) desapareceram.
     const doneColumnIds = Object.values(taskBoard.columns)
-      .filter(c => c.title === 'Concluído' || c.title === 'Em Revisão')
-      .map(c => c.id);
+      .filter((c: Column) => c.title === 'Concluído' || c.title === 'Em Revisão')
+      .map((c: Column) => c.id);
 
-    const pendingTasks = tasks.filter(task => {
-      const column = Object.values(taskBoard.columns).find(c => c.taskIds.includes(task.id));
+    const pendingTasks = tasks.filter((task: Task) => {
+      const column = Object.values(taskBoard.columns).find((c: Column) => c.taskIds.includes(task.id));
       return column && !doneColumnIds.includes(column.id);
     });
 
-    const activeServices = services.filter(s => s.status === 'Em Andamento');
+    const activeServices = services.filter((s: Service) => s.status === 'Em Andamento');
 
     const pendingPaymentsValue = payments
-      .filter(p => p.status === 'Pendente' || p.status === 'Agendado')
-      .reduce((sum, p) => sum + p.value, 0);
+      .filter((p: Payment) => p.status === 'Pendente' || p.status === 'Agendado')
+      .reduce((sum: number, p: Payment) => sum + p.value, 0);
 
     return { pendingTasks, activeServices, pendingPaymentsValue };
   }, [tasks, services, payments, taskBoard]);
@@ -58,8 +87,10 @@ const ConsultantDashboardPage = ({ consultantName, tasks, services, payments, ta
           <div className="space-y-3">
             {pendingTasks.slice(0, 5).map(task => (
               <div key={task.id} className="p-3 border rounded-md hover:bg-gray-50">
-                <h4 className="font-semibold text-gray-800">{task.title}</h4>
-                {task.dueDate && <p className="text-xs text-red-500 mt-1">Prazo: {new Date(task.dueDate).toLocaleDateString()}</p>}
+                {/* CORREÇÃO: 'task.title' -> 'task.titulo' */}
+                <h4 className="font-semibold text-gray-800">{task.titulo}</h4>
+                {/* CORREÇÃO: 'task.dueDate' -> 'task.data' */}
+                {task.data && <p className="text-xs text-red-500 mt-1">Prazo: {new Date(task.data).toLocaleDateString()}</p>}
               </div>
             ))}
             {pendingTasks.length === 0 && <p className="text-sm text-gray-500">Nenhuma tarefa pendente.</p>}

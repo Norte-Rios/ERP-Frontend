@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import axios from 'axios'; // <- Descomentado
 import { Link } from 'react-router-dom';
-import { Calendar, CheckSquare, Video, Loader2 } from 'lucide-react';
+import { Calendar, CheckSquare, Video, Loader2, Users } from 'lucide-react'; // Adicionado Users
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { useAuth } from '../../../auth/AuthContext.tsx';
+import { useAuth } from '../../../auth/AuthContext.tsx'; 
 
 // Tipos (simplificados, ajuste conforme necessário)
 interface Task {
@@ -25,18 +24,25 @@ interface Meet {
 }
 
 interface Event {
-  summary: string;
-  start: { dateTime?: string; date?: string };
-  end: { dateTime?: string; date?: string };
-  id?: string;
+    summary: string;
+    start: { dateTime?: string; date?: string };
+    end: { dateTime?: string; date?: string };
+    id?: string;
 }
 
+interface User {
+  id: string;
+  nome: string;
+  email: string;
+  role: string;
+  status: string; // 'Ativo', 'Inativo'
+}
+
+// --- DADOS MOCK REMOVIDOS ---
+
 // Componente de Card de Métrica
-const MetricCard = ({ title, value, icon: Icon, color, linkTo }) => (
-  <Link
-    to={linkTo}
-    className={`block p-6 rounded-lg shadow-md flex items-start justify-between ${color} text-white hover:opacity-90 transition-opacity`}
-  >
+const MetricCard = ({ title, value, icon: Icon, color, linkTo }: any) => ( // Adicionado 'any' para simplicidade
+  <Link to={linkTo} className={`block p-6 rounded-lg shadow-md flex items-start justify-between ${color} text-white hover:opacity-90 transition-opacity`}>
     <div>
       <h3 className="text-sm font-medium text-white/80">{title}</h3>
       <p className="mt-2 text-3xl font-bold">{value}</p>
@@ -51,6 +57,7 @@ const OperationalDashboardPage: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meets, setMeets] = useState<Meet[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  // const [users, setUsers] = useState<User[]>([]); // 'users' não é usado neste componente
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,7 +76,8 @@ const OperationalDashboardPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const fetchPromises = [
+        // CORREÇÃO 1: Tipar o array de promises como 'any[]'
+        const fetchPromises: Promise<any>[] = [
           axios.get(`${API_URL}/tasks`), // Busca TODAS as tarefas
         ];
 
@@ -79,8 +87,9 @@ const OperationalDashboardPage: React.FC = () => {
           fetchPromises.push(axios.get(`${API_URL}/google/meets/${googleId}`));
         } else {
           console.warn('Google ID não encontrado. Não foi possível buscar eventos e meets.');
-          fetchPromises.push(Promise.resolve({ data: [] })); // Para events
-          fetchPromises.push(Promise.resolve({ data: [] })); // Para meets
+          // CORREÇÃO 2: Usar 'as any' para bater com o tipo do array
+           fetchPromises.push(Promise.resolve({ data: [] } as any)); // Para events
+           fetchPromises.push(Promise.resolve({ data: [] } as any)); // Para meets
         }
 
         const [tasksRes, eventsRes, meetsRes] = await Promise.all(fetchPromises);
@@ -140,10 +149,10 @@ const OperationalDashboardPage: React.FC = () => {
   const taskStatusData = useMemo(() => {
     const statusCounts = tasks.reduce((acc, task) => {
       const statusKey = task.status || 'Sem Status';
-      acc[statusKey] = (acc[statusKey] || 0) + 1;
+      (acc as any)[statusKey] = ((acc as any)[statusKey] || 0) + 1;
       return acc;
     }, {});
-    return Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+    return Object.entries(statusCounts).map(([name, value]) => ({ name, value: value as number }));
   }, [tasks]);
 
   const COLORS = ['#FFBB28', '#00C49F', '#FF8042', '#0088FE'];
@@ -210,7 +219,8 @@ const OperationalDashboardPage: React.FC = () => {
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
-                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                  // CORREÇÃO 3: Converter 'percent' para 'Number'
+                  label={({ name, percent }) => `${name} (${(Number(percent) * 100).toFixed(0)}%)`}
                 >
                   {taskStatusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -298,4 +308,4 @@ const OperationalDashboardPage: React.FC = () => {
   );
 };
 
-export default OperationalDashboardPage;  
+export default OperationalDashboardPage;

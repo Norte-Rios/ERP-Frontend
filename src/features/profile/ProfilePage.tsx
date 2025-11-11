@@ -107,7 +107,7 @@ const ProfilePage: React.FC = () => {
       showNotification('Erro: ID do usuário não encontrado.', 'error');
       return;
     }
-    if (该新密码 !== confirmPassword) {
+    if (newPassword !== confirmPassword) {
       showNotification('As novas palavras-passe não coincidem.', 'error');
       return;
     }

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 // ATUALIZADO: Importações de tipos e ícones
-import { TaskBoard, Task, Tag } from '../../admin/tasks/types';
+import { TaskBoard, Task, Tag, Comment as FrontendComment } from '../../admin/tasks/types'; // Importando 'FrontendComment' como 'Comment'
 import { User, Calendar, MessageSquare, X, Loader2, AlertCircle, Trash2, Edit } from 'lucide-react'; 
 import {
   DndContext,
@@ -34,13 +34,8 @@ export interface BackendComment {
   user: { id: string; nome: string; };
   createdAt: string;
 }
-// Tipo do comentário como usado no Frontend
-export interface FrontendComment {
-  id: string;
-  text: string;
-  author: string;
-  date: string;
-}
+// Tipo do comentário como usado no Frontend (já importado como FrontendComment)
+
 
 // --- Funções de API de Comentários (NOVAS) ---
 const apiGetCommentsByTask = async (taskId: string): Promise<BackendComment[]> => {
@@ -77,7 +72,7 @@ type BackendTask = {
   status: string;
   etiqueta: Tag | null;
   description: string | null;
-  comment: any[] | null;
+  comment: any[] | null; // Note que o backend parece retornar 'comment' no singular
 };
 
 // --- Initial Board Structure (Sem alterações) ---
@@ -93,9 +88,9 @@ const initialBoardStructure: TaskBoard = {
   tags: {},
 };
 
-// --- TaskTags Component (Sem alterações) ---
-const TaskTags = ({ tagIds, tags }: { tagIds: string[]; tags: Record<string, Tag> }) => {
-  if (!tagIds || tagIds.length === 0) return null;
+// --- TaskTags Component (CORRIGIDO) ---
+const TaskTags = ({ tagId, tags }: { tagId: string | null | undefined; tags: Record<string, Tag> }) => {
+  if (!tagId) return null; // Alterado de tagIds (array) para tagId (string)
 
   const getContrastingTextColor = (hex: string) => {
     if (!hex) return '#000000';
@@ -106,34 +101,38 @@ const TaskTags = ({ tagIds, tags }: { tagIds: string[]; tags: Record<string, Tag
     return yiq >= 128 ? '#1f2937' : '#FFFFFF'; 
   };
 
+  const tag = tags[tagId];
+  if (!tag) return null;
+  
+  const tagStyle = {
+    backgroundColor: tag.color || '#E5E7EB',
+    color: getContrastingTextColor(tag.color),
+  };
+
   return (
     <div className="flex flex-wrap gap-1 mt-2">
-      {tagIds.map(tagId => {
-        const tag = tags[tagId];
-        if (!tag) return null;
-        
-        const tagStyle = {
-          backgroundColor: tag.color || '#E5E7EB',
-          color: getContrastingTextColor(tag.color),
-        };
-
-        return (
-          <span
-            key={tag.id}
-            className="px-2 py-0.5 text-xs font-semibold rounded-full"
-            style={tagStyle}
-          >
-            {tag.nome}
-          </span>
-        );
-      })}
+      <span
+        key={tag.id}
+        className="px-2 py-0.5 text-xs font-semibold rounded-full"
+        style={tagStyle}
+      >
+        {tag.nome} {/* 'name' -> 'nome' */}
+      </span>
     </div>
   );
 };
 
-// --- TaskCard Component (ATUALIZADO) ---
-// Adicionado 'onClick' para abrir o modal
-const TaskCard = ({ task, tags, innerRef, style, onClick, ...props }) => {
+// --- TaskCard Component (CORRIGIDO) ---
+// Props agora são opcionais para o DragOverlay
+interface TaskCardProps {
+  task: Task;
+  tags: Record<string, Tag>;
+  innerRef?: React.Ref<HTMLDivElement>;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+}
+
+const TaskCard = ({ task, tags, innerRef, style, onClick, ...props }: TaskCardProps) => {
   return (
     <div
       ref={innerRef}
@@ -142,27 +141,27 @@ const TaskCard = ({ task, tags, innerRef, style, onClick, ...props }) => {
       {...props} 
       className="bg-white p-3 rounded-md shadow-sm border border-gray-200 cursor-grab"
     >
-      <h4 className="font-semibold text-sm text-gray-800 mb-2">{task.title}</h4>
-      <TaskTags tagIds={task.tagIds} tags={tags} />
+      <h4 className="font-semibold text-sm text-gray-800 mb-2">{task.titulo}</h4> {/* 'title' -> 'titulo' */}
+      <TaskTags tagId={task.etiquetaId} tags={tags} /> {/* 'tagIds' -> 'etiquetaId' */}
       <div className="flex justify-between items-center text-xs text-gray-500 mt-3 pt-2 border-t">
         <div className="flex items-center gap-2">
-          {task.dueDate && (
+          {task.data && ( // 'dueDate' -> 'data'
             <div className="flex items-center gap-1">
               <Calendar size={12} />
-              <span>{new Date(task.dueDate).toLocaleDateString('pt-BR')}</span>
+              <span>{new Date(task.data).toLocaleDateString('pt-BR')}</span> {/* 'dueDate' -> 'data' */}
             </div>
           )}
-          {task.comments && task.comments.length > 0 && (
+          {task.coment && task.coment.length > 0 && ( // 'comments' -> 'coment'
             <div className="flex items-center gap-1">
               <MessageSquare size={12} />
-              <span>{task.comments.length}</span>
+              <span>{task.coment.length}</span> {/* 'comments' -> 'coment' */}
             </div>
           )}
         </div>
-        {task.assignee && (
-          <div className="flex items-center gap-1" title={task.assignee.name}>
+        {task.user && ( // 'assignee' -> 'user'
+          <div className="flex items-center gap-1" title={task.user.nome}> {/* 'assignee.name' -> 'user.nome' */}
             <User size={14} />
-            <span className="font-medium">{task.assignee.name.split(' ')[0]}</span>
+            <span className="font-medium">{task.user.nome.split(' ')[0]}</span> {/* 'assignee.name' -> 'user.nome' */}
           </div>
         )}
       </div>
@@ -170,9 +169,9 @@ const TaskCard = ({ task, tags, innerRef, style, onClick, ...props }) => {
   );
 };
 
-// --- SortableTaskItem Component (ATUALIZADO) ---
+// --- SortableTaskItem Component (CORRIGIDO) ---
 // Adicionado 'onClick' para repassar ao TaskCard
-const SortableTaskItem = ({ task, tags, onClick }) => {
+const SortableTaskItem = ({ task, tags, onClick }: { task: Task, tags: Record<string, Tag>, onClick: () => void }) => {
   const {
     attributes,
     listeners,
@@ -229,7 +228,7 @@ const TaskColumn = ({ column, tasks, tags, onTaskClick }: {
       <SortableContext
         items={column.taskIds}
         strategy={verticalListSortingStrategy}
-    S >
+     >
         <div ref={setNodeRef} className="space-y-3 flex-grow min-h-[100px]">
           {tasks.map((task) => (
             <SortableTaskItem
@@ -248,7 +247,7 @@ const TaskColumn = ({ column, tasks, tags, onTaskClick }: {
 // ---------------------------------------------------
 // --- NOVO COMPONENTE: TaskDetailModal ---
 // ---------------------------------------------------
-const TaskDetailModal = ({ isOpen, onClose, task, tags, currentUser, onCommentAdded }) => {
+const TaskDetailModal = ({ isOpen, onClose, task, tags, currentUser, onCommentAdded }: any) => {
   const [comments, setComments] = useState<FrontendComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
@@ -327,18 +326,18 @@ const TaskDetailModal = ({ isOpen, onClose, task, tags, currentUser, onCommentAd
         
         {/* Cabeçalho do Modal */}
         <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-bold text-gray-800">{task.title}</h3>
+          <h3 className="text-xl font-bold text-gray-800">{task.titulo}</h3> {/* 'title' -> 'titulo' */}
           <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200"><X size={20} /></button>
         </div>
         {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2"><AlertCircle size={16} /> {error}</div>}
 
         {/* Conteúdo e Detalhes */}
         <div className="flex-grow overflow-y-auto pr-2 max-h-[calc(90vh-160px)]">
-          <TaskTags tagIds={task.tagIds} tags={tags} />
-          {task.content && <p className="text-gray-600 my-4 whitespace-pre-wrap">{task.content}</p>}
+          <TaskTags tagId={task.etiquetaId} tags={tags} /> {/* 'tagIds' -> 'etiquetaId' */}
+          {task.description && <p className="text-gray-600 my-4 whitespace-pre-wrap">{task.description}</p>} {/* 'content' -> 'description' */}
           <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-6">
-            <div><strong className="block text-gray-500">Responsável:</strong> {task.assignee?.name || 'Não atribuída'}</div>
-            <div><strong className="block text-gray-500">Data:</strong> {task.dueDate ? new Date(task.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Não definida'}</div>
+            <div><strong className="block text-gray-500">Responsável:</strong> {task.user?.nome || 'Não atribuída'}</div> {/* 'assignee.name' -> 'user.nome' */}
+            <div><strong className="block text-gray-500">Data:</strong> {task.data ? new Date(task.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Não definida'}</div> {/* 'dueDate' -> 'data' */}
           </div>
 
           {/* Seção de Comentários */}
@@ -419,7 +418,7 @@ const OperationalTasksPage: React.FC<OperationalTasksPageProps> = ({ currentUser
   // ✅ NOVO ESTADO: Gerencia qual task está no modal
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const statusMap = {
+  const statusMap: { [key: string]: string } = { // Tipagem adicionada
     AFAZER: 'a fazer',
     EMANDAMENTO: 'em andamento',
     EMREVISAO: 'em revisão',
@@ -440,15 +439,15 @@ const OperationalTasksPage: React.FC<OperationalTasksPageProps> = ({ currentUser
         for (const task of tasksFromDb) {
           const mappedStatus = statusMap[task.status] || task.status;
           if (!newBoard.tasks[task.id]) { 
+            // CORREÇÃO (Linha 445): Mapear backend (inglês/misto) para frontend (português)
             newBoard.tasks[task.id] = {
               id: String(task.id),
-              title: task.titulo || 'Sem Título',
-              content: task.description || '',
-              dueDate: task.data,
-              assignee: task.user ? { id: task.user.id, name: task.user.nome } : null,
-              // 'comments' aqui é usado apenas para a CONTAGEM no card
-              comments: task.comment || [], 
-              tagIds: task.etiqueta ? [task.etiqueta.id] : [],
+              titulo: task.titulo || 'Sem Título', // 'title' -> 'titulo'
+              description: task.description || '', // 'content' -> 'description'
+              data: task.data, // 'dueDate' -> 'data'
+              user: task.user ? { id: task.user.id, nome: task.user.nome } : undefined, // 'assignee' -> 'user'
+              coment: (task.comment || []) as FrontendComment[], // 'comments' -> 'coment'
+              etiquetaId: task.etiqueta ? task.etiqueta.id : null, // 'tagIds' -> 'etiquetaId'
               status: mappedStatus,
             };
 
@@ -560,8 +559,8 @@ const OperationalTasksPage: React.FC<OperationalTasksPageProps> = ({ currentUser
       });
 
       console.log(`Task ${taskId} movida para ${newStatus} no backend.`);
-    } catch (err) {
-      console.error('Erro ao atualizar a task:', err.response?.data || err.message);
+    } catch (err: any) {
+      console.error('Erro ao atualizar a task:', (err as any).response?.data || (err as any).message);
       setBoardData(boardData); // Reverte
     }
   };
@@ -571,7 +570,7 @@ const OperationalTasksPage: React.FC<OperationalTasksPageProps> = ({ currentUser
   // Abre o modal com a tarefa selecionada
   const handleOpenTaskDetails = (task: Task) => {
     // Garante que estamos abrindo a versão mais atual da task
-    setSelectedTask(boardData.tasks[task.id] || task);
+    setSelectedTask(boardData!.tasks[task.id] || task);
   };
 
   // Fecha o modal
@@ -586,10 +585,10 @@ const OperationalTasksPage: React.FC<OperationalTasksPageProps> = ({ currentUser
       const newTasks = { ...prev.tasks };
       const task = newTasks[taskId];
       if (task) {
-        // Atualiza a array 'comments' na task para refletir a nova contagem
+        // CORREÇÃO (Linha 592): 'comments' -> 'coment'
         newTasks[taskId] = {
           ...task,
-          comments: [...(task.comments || []), newComment] 
+          coment: [...(task.coment || []), newComment] 
         };
       }
       return { ...prev, tasks: newTasks };
@@ -643,8 +642,15 @@ const OperationalTasksPage: React.FC<OperationalTasksPageProps> = ({ currentUser
       </div>
       
       <DragOverlay>
+        {/* CORREÇÃO (Linha 647): Passar props opcionais como null ou undefined */}
         {activeTask ? (
-          <TaskCard task={activeTask} tags={boardData.tags} />
+          <TaskCard 
+            task={activeTask} 
+            tags={boardData.tags} 
+            innerRef={undefined} 
+            style={{}} 
+            onClick={undefined} 
+          />
         ) : null}
       </DragOverlay>
       

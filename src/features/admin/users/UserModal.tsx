@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { User } from './types'; // Certifique-se que o tipo User está correto aqui
+// CORREÇÃO 1: Importar apenas 'User'
+import { User } from './types'; 
 
 // Modal Component
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // A função onSave agora recebe o objeto User completo ou parcial
-  onSave: (user: Omit<User, 'id' | 'lastLogin'> | User) => Promise<void>; // Tornada async
+  onSave: (user: Omit<User, 'id' | 'lastLogin'> | User) => Promise<void>; 
   userToEdit: User | null;
-  loading: boolean; // Adicionado para feedback
+  loading: boolean;
+}
+
+// CORREÇÃO 2: Definir o tipo do FormData extraindo os tipos de 'User'
+interface ModalFormData {
+  nome: string;
+  email: string;
+  role: User['role']; // <-- Extrai o tipo 'role' diretamente de 'User'
+  status: User['status']; // <-- Extrai o tipo 'status' diretamente de 'User'
 }
 
 const UserModal: React.FC<UserModalProps> = ({
@@ -19,13 +27,12 @@ const UserModal: React.FC<UserModalProps> = ({
   userToEdit,
   loading,
 }) => {
-  const [formData, setFormData] = useState({
+  // CORREÇÃO 3: Usar os valores corretos (com maiúsculas) no estado inicial
+  const [formData, setFormData] = useState<ModalFormData>({
     nome: '',
     email: '',
-    // Use os valores exatos da sua interface User['role']
-    role: 'client' as User['role'],
-    // [CORREÇÃO] Use os valores esperados pelo backend ('ativo'/'inativo') como valor inicial
-    status: 'ativo' as User['status'],
+    role: 'Client', // Valor padrão (com 'C' maiúsculo, como no seu tipo)
+    status: 'ativo',
   });
 
   useEffect(() => {
@@ -33,25 +40,19 @@ const UserModal: React.FC<UserModalProps> = ({
       setFormData({
         nome: userToEdit.nome,
         email: userToEdit.email,
-        role: userToEdit.role,
-        // [CORREÇÃO] Garanta que o status vindo do userToEdit seja 'ativo' ou 'inativo'
-        status:
-          userToEdit.status === 'Active'
-            ? 'ativo'
-            : userToEdit.status === 'Inactive'
-            ? 'inativo'
-            : 'ativo',
+        role: userToEdit.role, // Agora os tipos batem
+        status: userToEdit.status, // Agora os tipos batem
       });
     } else {
       // Reset para valores padrão ao criar novo
       setFormData({
         nome: '',
         email: '',
-        role: 'client', // Valor padrão
-        status: 'ativo', // Valor padrão (esperado pelo backend)
+        role: 'Client', // Valor padrão (com 'C' maiúsculo)
+        status: 'ativo',
       });
     }
-  }, [userToEdit, isOpen]); // Roda quando abre ou muda o user a editar
+  }, [userToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -59,7 +60,14 @@ const UserModal: React.FC<UserModalProps> = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Força a tipagem correta no handleChange
+    if (name === 'role') {
+      setFormData((prev) => ({ ...prev, [name]: value as User['role'] }));
+    } else if (name === 'status') {
+      setFormData((prev) => ({ ...prev, [name]: value as User['status'] }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSave = async () => {
@@ -68,20 +76,14 @@ const UserModal: React.FC<UserModalProps> = ({
       return;
     }
 
-    const statusToSend =
-      formData.status === 'Active'
-        ? 'ativo'
-        : formData.status === 'Inactive'
-        ? 'inativo'
-        : formData.status;
-
+    // O formData agora está 100% correto e é seguro para enviar.
     const userDataToSend = userToEdit
-      ? { ...userToEdit, ...formData, status: statusToSend }
-      : { ...formData, status: statusToSend };
+      ? { ...userToEdit, ...formData }
+      : formData;
 
     try {
+      // O tipo de 'userDataToSend' agora bate com o tipo esperado por 'onSave'
       await onSave(userDataToSend);
-      // onClose(); // O pai deve chamar onClose após sucesso
     } catch (error) {
       console.error('Erro no handleSave do modal:', error);
     }
@@ -151,6 +153,7 @@ const UserModal: React.FC<UserModalProps> = ({
             >
               Perfil
             </label>
+            {/* CORREÇÃO 4: Os 'value' das options devem bater EXATAMENTE com o TIPO */}
             <select
               id="role"
               name="role"
@@ -159,10 +162,10 @@ const UserModal: React.FC<UserModalProps> = ({
               className="mt-1 block w-full input-style"
             >
               <option value="admin master">Admin Master</option>
-              <option value="admin comum">Admin</option>
+              <option value="Admin comum">Admin</option> {/* <-- Corrigido */}
               <option value="operational">Operational</option>
-              <option value="consultant">Consultant</option>
-              <option value="client">Client</option>
+              <option value="Consultant">Consultant</option> {/* <-- Corrigido */}
+              <option value="Client">Client</option> {/* <-- Corrigido */}
             </select>
           </div>
 

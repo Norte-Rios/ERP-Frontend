@@ -221,12 +221,22 @@ const TaskTags = ({ tagId, tags }: { tagId: string | null; tags: Record<string, 
 };
 
 
-// ✅ TASK CARD ATUALIZADO
-const TaskCard = ({ task, onDragStart, onDragEnd, onClick, tags }: { task: Task; onDragStart: Function; onDragEnd: Function; onClick: Function; tags: Record<string, Tag> }) => (
+// --- CORREÇÃO AQUI ---
+// 1. Criamos uma interface para as props do TaskCard
+interface TaskCardProps {
+  task: Task;
+  onDragStart: (e: React.DragEvent<HTMLDivElement>, taskId: string) => void;
+  onDragEnd: React.DragEventHandler<HTMLDivElement>; // Tipo correto para 'onDragEnd' de um div
+  onClick: (task: Task) => void;
+  tags: Record<string, Tag>;
+}
+
+// 2. Aplicamos a interface ao componente
+const TaskCard = ({ task, onDragStart, onDragEnd, onClick, tags }: TaskCardProps) => (
  <div
    draggable
    onDragStart={(e) => onDragStart(e, task.id)}
-   onDragEnd={onDragEnd}
+   onDragEnd={onDragEnd} // <-- Erro resolvido
    onClick={() => onClick(task)}
    className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all duration-150 ease-in-out"
  >
@@ -875,3 +885,4 @@ const TaskBoardPage: React.FC<TaskBoardPageProps> = ({ initialBoard }) => {
 };
 
 export default TaskBoardPage;
+

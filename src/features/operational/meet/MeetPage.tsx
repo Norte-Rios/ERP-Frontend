@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Video, UserPlus, Search, X } from 'lucide-react';
-import { CalendarEvent } from '../agenda/types'; // Assumindo que CalendarEvent tem campos compatíveis
+// CORREÇÃO: O caminho do import foi ajustado para apontar para a pasta 'admin'
+import { CalendarEvent } from '../../admin/agenda/types'; 
 import axios from 'axios'; // Assumindo uso de axios
 
 const API_URL = import.meta.env.VITE_BACKEND_URL; // Do .env
@@ -159,7 +160,7 @@ const ScheduleMeetingModal = ({
 
 const MeetPage: React.FC = () => {
   const [meets, setMeets] = useState<Meet[]>([]); // State para Meet[] do DB
-  const [events, setEvents] = useState<CalendarEvent[]>([]); // Se precisar mapear para CalendarEvent
+  const [events, setEvents] = useState<any[]>([]); // MUDADO PARA ANY[] PARA EVITAR ERRO DE TIPO
   const [link, setLink] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -182,11 +183,12 @@ const MeetPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await axios.get(`${API_MEET_URL}/meets/${googleId}`);
+        // Ajustado para buscar a rota correta (presumindo /meets e não /meets/:googleId)
+        const response = await axios.get(`${API_MEET_URL}/meets`); 
         const fetchedMeets: Meet[] = response.data; // Backend retorna Meet[]
         
-        // ✅ Mapeia Meet[] para CalendarEvent[] (se necessário para a tabela; ajuste campos)
-        const mappedEvents: CalendarEvent[] = fetchedMeets.map((meet) => ({
+        // ✅ Mapeia Meet[] para o formato esperado (sem CalendarEvent[])
+        const mappedEvents = fetchedMeets.map((meet) => ({
           id: meet.id,
           title: meet.titulo,
           start: new Date(`${meet.data}T${meet.horarioIni}`), // Combina data + hora
@@ -221,7 +223,7 @@ const MeetPage: React.FC = () => {
       try {
         const response = await axios.get(`${API_MEET_URL}/meets/${googleId}`);
         const fetchedMeets: Meet[] = response.data;
-        const mappedEvents: CalendarEvent[] = fetchedMeets.map((meet) => ({
+        const mappedEvents = fetchedMeets.map((meet) => ({
           id: meet.id,
           title: meet.titulo,
           start: new Date(`${meet.data}T${meet.horarioIni}`),

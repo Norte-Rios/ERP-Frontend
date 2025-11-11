@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Client } from '../clients/types';
 import { Contract } from './types';
-
+    
 interface AddContractPageProps {
   clients: Client[];
   onAddContract: (contract: Omit<Contract, 'id'>) => void;

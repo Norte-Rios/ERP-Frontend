@@ -1,6 +1,7 @@
+// Define a Etiqueta (Tag)
 export interface Etiqueta {
   id: string;
-  nome: string;
+  nome: string; // <-- Correto (em português, como seu código usa)
   color: string;
   createdAt?: string;
   updatedAt?: string;
@@ -8,9 +9,9 @@ export interface Etiqueta {
 
 export type Tag = Etiqueta;
 
-// ... resto dos types permanecem iguais
-// Define um comentário dentro de uma tarefa
+// Define um comentário
 export interface Comment {
+  id: string; // <-- ADICIONADO (seu código usa comment.id como 'key')
   author: string;
   date: string;
   text: string;
@@ -19,21 +20,30 @@ export interface Comment {
 // Define a estrutura de uma única tarefa (card)
 export interface Task {
   id: string;
-  title: string;
-  description?: string;
-  assignee?: {
+  titulo: string; // <-- CORRETO (em português)
+  status: string; // <-- CORRETO (em português)
+
+  description?: string | null;
+  data?: string | null;        // <-- CORRETO (em português)
+  
+  // Seu código usa 'user' para exibir e 'userId' para salvar
+  user?: { 
     id: string;
-    name: string;
+    nome: string; 
   };
-  dueDate?: string;
-  tagIds?: string[]; // Alterado de 'tags' para 'tagIds'
-  comments?: Comment[];
+  userId?: string | null; 
+  
+  etiquetaId?: string | null; // <-- CORRETO (em português)
+  
+  // O seu código em TaskBoardPage.tsx usa 'coment' (com erro de digitação)
+  // O tipo DEVE bater com o código.
+  coment: Comment[]; 
 }
 
 // Define a estrutura de uma coluna do quadro
 export interface Column {
   id: string;
-  title: string;
+  title: string; // (Este 'title' está correto, pois o mock usa)
   taskIds: string[];
 }
 
@@ -42,5 +52,5 @@ export interface TaskBoard {
   tasks: { [key: string]: Task };
   columns: { [key: string]: Column };
   columnOrder: string[];
-  tags: { [key: string]: Tag }; // Adicionado: Dicionário de etiquetas disponíveis
+  tags: { [key: string]: Tag };
 }

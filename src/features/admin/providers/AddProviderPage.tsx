@@ -41,6 +41,7 @@ const AddProviderPage: React.FC<AddProviderPageProps> = ({ onAddProvider }) => {
       ...formData,
       bankDetails: { bank: '', agency: '', account: '', pix: '' },
       offeredServices: [],
+      professionals: []
     });
     console.log(`Criar login para ${formData.contact.email}: ${createLogin}`);
     navigate('/providers');

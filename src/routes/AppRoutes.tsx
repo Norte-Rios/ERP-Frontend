@@ -104,6 +104,8 @@ const AppRoutes = (props: AppRoutesProps) => {
   // Encontrar os dados do utilizador atual com base no seu ID
   const currentConsultant = props.consultants.find(c => c.contact.email === user?.email);
   const currentClient = props.clients.find(c => c.email === user?.email);
+  // CORREÇÃO: Encontra o 'operationalUser' completo a partir das props
+  const operationalUser = props.users.find(u => u.email === user?.email && u.role?.toLowerCase() === 'operational');
   
 
 
@@ -112,7 +114,10 @@ const AppRoutes = (props: AppRoutesProps) => {
   const consultantTaskBoard: TaskBoard = {
     ...props.taskBoard,
     tasks: currentConsultant ? Object.fromEntries(
-      Object.entries(props.taskBoard.tasks).filter(([, task]) => task.assignee?.id === currentConsultant.id)
+      Object.entries(props.taskBoard.tasks).filter(([, task]) => 
+          // CORREÇÃO: 'assignee' -> 'user'
+          task.user?.id === currentConsultant.id 
+      )
     ) : {},
     columns: currentConsultant ? Object.fromEntries(
       Object.entries(props.taskBoard.columns).map(([columnId, column]) => [
@@ -120,7 +125,8 @@ const AppRoutes = (props: AppRoutesProps) => {
         {
           ...column,
           taskIds: column.taskIds.filter(taskId =>
-            props.taskBoard.tasks[taskId]?.assignee?.id === currentConsultant.id
+            // CORREÇÃO: 'assignee' -> 'user'
+            props.taskBoard.tasks[taskId]?.user?.id === currentConsultant.id
           ),
         },
       ])
@@ -144,7 +150,7 @@ const AppRoutes = (props: AppRoutesProps) => {
   // Autores para logs e comentários
   const consultantAuthor: LogAuthor | undefined = currentConsultant ? { id: currentConsultant.id, name: currentConsultant.fullName, avatarUrl: `https://i.pravatar.cc/150?u=${currentConsultant.id}` } : undefined;
   const clientAuthor = currentClient ? { name: currentClient.companyName } : undefined;
-  const operationalUser = props.users.find(u => u.email === user?.email && u.role?.toLowerCase() === 'operational');
+  // (Removida a definição 'operationalUser' daqui, movida para cima)
 
   const operationalEvents: CalendarEvent[] = useMemo(() => {
     // ... (lógica existente para eventos operacionais)
@@ -202,7 +208,8 @@ const AppRoutes = (props: AppRoutesProps) => {
                   <Route path="dashboard" element={<AdminDashboard />} />
                   <Route path="tasks" element={<TaskBoardPage initialBoard={props.taskBoard} />} />
                   <Route path="agenda" element={<AgendaPage services={props.services} />} />
-                  <Route path="meet" element={<MeetPage events={operationalEvents} />} />
+                  {/* CORREÇÃO: Removida a prop 'events' */}
+                  <Route path="meet" element={<MeetPage />} />
                   {/* Passa as props necessárias para UserListPage */}
                   <Route path="users" element={<UserListPage />} />
                 </Route>
@@ -233,7 +240,8 @@ const AppRoutes = (props: AppRoutesProps) => {
                           currentConsultant={currentConsultant}
                           onUpdateTaskBoard={props.onUpdateTaskBoard}
                           onUpdateTask={props.onUpdateTask}
-                    D     onDeleteTask={props.onDeleteTask}
+                         
+                          onDeleteTask={props.onDeleteTask}
                           onAddTaskComment={props.onAddTaskComment}
                       />}
                     />
@@ -302,7 +310,7 @@ const AppRoutes = (props: AppRoutesProps) => {
                     } />
                     <Route path="documents/:documentId" element={
                       <ClientDocumentDetailPage
-                        documents={clientDocuments}
+                       documents={clientDocuments}
                         onAddComment={(docId, text) => clientAuthor && props.onAddCommentToDocument(docId, text, clientAuthor.name)}
                     />}
                     />
@@ -311,17 +319,21 @@ const AppRoutes = (props: AppRoutesProps) => {
             )}
 
             {/* Rotas Operacionais */}
-            {/* Rotas Operacionais */}
-              {user && user.role === 'operational' && (
-                <Route path="/operational" element={<OperationalLayout />}>
+           {/* Rotas Operacionais */}
+              {/* CORREÇÃO: 'user.role' -> 'userRole' */}
+              {user && userRole === 'operational' && (
+                <Route path="/operational" element={<OperationalLayout user={operationalUser} />}> {/* CORREÇÃO: Passando 'operationalUser' */}
                 <Route index element={<Navigate to="tasks" replace />} />
                   <Route
                     path="tasks"
                     element={
-
                       <OperationalTasksPage
-                        taskBoard={props.taskBoard}
-                        currentUser={user}
+                        
+                        // CORREÇÃO: Adaptar o 'user' para o formato esperado por 'currentUser'
+                        currentUser={{
+                          ...user,
+                          fullName: operationalUser?.nome || user.email, // Mapeia 'nome' para 'fullName'
+                        }}
                       />
                     }
                   />
@@ -331,15 +343,16 @@ const AppRoutes = (props: AppRoutesProps) => {
                       />
             
                     <Route
-                    path="agenda"
+                  path="agenda"
                       element={<AgendaPage services={props.services} />} // Pode filtrar serviços relevantes se necessário
                     />
                     <Route
                       path="meet"
-                    element={<OperationalMeetPage events={operationalEvents} />}
+                      
+                      element={<OperationalMeetPage />}
                     />
                 </Route>
-            )}
+        )}
         </Route>
       </Route>
 

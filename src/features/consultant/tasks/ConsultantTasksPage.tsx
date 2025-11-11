@@ -5,27 +5,25 @@ import { Consultant } from '@/features/admin/consultants/types';
 
 
 // Componente para exibir as etiquetas coloridas
-const TaskTags = ({ tagIds, tags }) => {
-  if (!tagIds || tagIds.length === 0) return null;
+// CORRIGIDO: Agora recebe 'tagId' (string) e 'tags' (objeto)
+const TaskTags = ({ tagId, tags }: { tagId: string | null | undefined, tags: { [key: string]: Tag } }) => {
+  if (!tagId) return null;
+  const tag = tags[tagId];
+  if (!tag) return null;
 
   return (
     <div className="flex flex-wrap gap-1 mt-2">
-      {tagIds.map(tagId => {
-        const tag = tags[tagId];
-        if (!tag) return null;
-        return (
-          <span key={tag.id} className={`px-2 py-0.5 text-xs font-semibold rounded-full ${tag.color}`}>
-            {tag.name}
-          </span>
-        );
-      })}
+      <span key={tag.id} className={`px-2 py-0.5 text-xs font-semibold rounded-full ${tag.color}`}>
+        {tag.nome} {/* 'name' -> 'nome' */}
+      </span>
     </div>
   );
 };
 
 
 // Cartão de Tarefa clicável
-const TaskCard = ({ task, onDragStart, onClick, tags }) => {
+// CORRIGIDO: Props atualizadas para português
+const TaskCard = ({ task, onDragStart, onClick, tags }: { task: Task, onDragStart: any, onClick: any, tags: { [key: string]: Tag } }) => {
   return (
     <div
       draggable
@@ -33,27 +31,27 @@ const TaskCard = ({ task, onDragStart, onClick, tags }) => {
       onClick={() => onClick(task)}
       className="bg-white p-3 rounded-md shadow-sm border border-gray-200 hover:shadow-lg hover:border-indigo-400 cursor-pointer transition-all"
     >
-      <h4 className="font-semibold text-sm text-gray-800 mb-2">{task.title}</h4>
-      <TaskTags tagIds={task.tagIds} tags={tags} />
+      <h4 className="font-semibold text-sm text-gray-800 mb-2">{task.titulo}</h4> {/* 'title' -> 'titulo' */}
+      <TaskTags tagId={task.etiquetaId} tags={tags} /> {/* 'tagIds' -> 'etiquetaId' */}
       <div className="flex justify-between items-center text-xs text-gray-500 mt-3 pt-2 border-t">
         <div className="flex items-center gap-2">
-          {task.dueDate && (
+          {task.data && ( // 'dueDate' -> 'data'
             <div className="flex items-center gap-1">
               <Calendar size={12} />
-              <span>{new Date(task.dueDate).toLocaleDateString('pt-BR')}</span>
+              <span>{new Date(task.data).toLocaleDateString('pt-BR')}</span> {/* 'dueDate' -> 'data' */}
             </div>
           )}
-           {task.comments && task.comments.length > 0 && (
+           {task.coment && task.coment.length > 0 && ( // 'comments' -> 'coment'
             <div className="flex items-center gap-1">
                 <MessageSquare size={12}/>
-                <span>{task.comments.length}</span>
+                <span>{task.coment.length}</span> {/* 'comments' -> 'coment' */}
             </div>
            )}
         </div>
-        {task.assignee && (
-           <div className="flex items-center gap-1" title={task.assignee.name}>
+        {task.user && ( // 'assignee' -> 'user'
+           <div className="flex items-center gap-1" title={task.user.nome}> {/* 'assignee.name' -> 'user.nome' */}
              <User size={14} />
-             <span className="font-medium">{task.assignee.name.split(' ')[0]}</span>
+             <span className="font-medium">{task.user.nome.split(' ')[0]}</span> {/* 'assignee.name' -> 'user.nome' */}
            </div>
         )}
       </div>
@@ -62,7 +60,7 @@ const TaskCard = ({ task, onDragStart, onClick, tags }) => {
 };
 
 // Modal para ver, editar e apagar tarefa
-const TaskDetailModal = ({ isOpen, onClose, task, onSave, onDelete, onAddComment, members, allTags, currentConsultant }) => {
+const TaskDetailModal = ({ isOpen, onClose, task, onSave, onDelete, onAddComment, members, allTags, currentConsultant }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [editData, setEditData] = useState<Task | null>(null);
@@ -97,22 +95,27 @@ const TaskDetailModal = ({ isOpen, onClose, task, onSave, onDelete, onAddComment
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if(name === 'assigneeId') {
-        const selectedAssignee = members.find(m => m.id === value);
+    // CORREÇÃO: 'assigneeId' -> 'userId'
+    if(name === 'userId') { 
+        const selectedAssignee = members.find((m: Consultant) => m.id === value);
         setEditData({
             ...editData,
-            assignee: selectedAssignee ? { id: selectedAssignee.id, name: selectedAssignee.fullName } : undefined
+            // CORREÇÃO: 'assignee' -> 'user', 'name' -> 'nome'
+            user: selectedAssignee ? { id: selectedAssignee.id, nome: selectedAssignee.fullName } : undefined,
+            userId: selectedAssignee ? selectedAssignee.id : undefined
         });
     } else {
         setEditData({ ...editData, [name]: value });
     }
   }
 
+  // CORREÇÃO: Lógica para 'etiquetaId' (string) em vez de 'tagIds' (array)
   const handleTagToggle = (tagId: string) => {
-    const newTagIds = editData.tagIds?.includes(tagId) 
-        ? editData.tagIds.filter(id => id !== tagId) 
-        : [...(editData.tagIds || []), tagId];
-    setEditData({ ...editData, tagIds: newTagIds });
+    setEditData(prevData => {
+      if (!prevData) return null;
+      const newEtiquetaId = prevData.etiquetaId === tagId ? null : tagId;
+      return { ...prevData, etiquetaId: newEtiquetaId };
+    });
   }
 
   const handleClose = () => {
@@ -126,7 +129,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, onSave, onDelete, onAddComment
         return (
             <>
                 <h3 className="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
-                <p>Tem a certeza de que deseja apagar a tarefa "{task.title}"? Esta ação não pode ser desfeita.</p>
+                <p>Tem a certeza de que deseja apagar a tarefa "{task.titulo}"? Esta ação não pode ser desfeita.</p> {/* 'title' -> 'titulo' */}
                 <div className="mt-6 flex justify-end gap-3">
                     <button onClick={() => setIsConfirmingDelete(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
                     <button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-semibold">Apagar Tarefa</button>
@@ -139,20 +142,24 @@ const TaskDetailModal = ({ isOpen, onClose, task, onSave, onDelete, onAddComment
           <>
             <h3 className="text-xl font-bold text-gray-800 mb-4">Editar Tarefa</h3>
             <div className="space-y-4 flex-grow overflow-y-auto pr-2">
-              <input type="text" name="title" value={editData.title} onChange={handleChange} className="w-full input-style" />
+              {/* 'title' -> 'titulo' */}
+              <input type="text" name="titulo" value={editData.titulo} onChange={handleChange} className="w-full input-style" />
               <textarea name="description" value={editData.description || ''} onChange={handleChange} className="w-full input-style" rows={3}></textarea>
-              <select name="assigneeId" value={editData.assignee?.id || ''} onChange={handleChange} className="w-full input-style">
+              {/* 'assigneeId' -> 'userId', 'assignee' -> 'user' */}
+              <select name="userId" value={editData.user?.id || ''} onChange={handleChange} className="w-full input-style">
                 <option value="">Ninguém atribuído</option>
                 {/* O consultor só pode atribuir a ele mesmo ou a ninguém */}
                 <option value={currentConsultant.id}>{currentConsultant.fullName}</option>
               </select>
-              <input type="date" name="dueDate" value={editData.dueDate || ''} onChange={handleChange} className="w-full input-style" />
+              {/* 'dueDate' -> 'data' */}
+              <input type="date" name="data" value={editData.data || ''} onChange={handleChange} className="w-full input-style" />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Etiquetas</label>
                 <div className="flex flex-wrap gap-2">
                     {Object.values(allTags || {}).map((tag: Tag) => (
-                        <button key={tag.id} onClick={() => handleTagToggle(tag.id)} className={`px-3 py-1 text-sm rounded-full transition-transform transform hover:scale-105 ${editData.tagIds?.includes(tag.id) ? tag.color + ' ring-2 ring-offset-1 ring-indigo-500' : 'bg-gray-200 text-gray-700'}`}>
-                            {tag.name}
+                        // CORREÇÃO: Lógica para 'etiquetaId' (string)
+                        <button key={tag.id} onClick={() => handleTagToggle(tag.id)} className={`px-3 py-1 text-sm rounded-full transition-transform transform hover:scale-105 ${editData.etiquetaId === tag.id ? tag.color + ' ring-2 ring-offset-1 ring-indigo-500' : 'bg-gray-200 text-gray-700'}`}>
+                            {tag.nome} {/* 'name' -> 'nome' */}
                         </button>
                     ))}
                 </div>
@@ -168,23 +175,24 @@ const TaskDetailModal = ({ isOpen, onClose, task, onSave, onDelete, onAddComment
     return (
         <>
         <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-bold text-gray-800">{task.title}</h3>
+          <h3 className="text-xl font-bold text-gray-800">{task.titulo}</h3> {/* 'title' -> 'titulo' */}
           <button onClick={handleClose} className="p-1 rounded-full hover:bg-gray-200"><X size={20} /></button>
         </div>
         <div className="flex-grow overflow-y-auto pr-2">
             <div className="mb-4">
-                <TaskTags tagIds={task.tagIds} tags={allTags} />
+                <TaskTags tagId={task.etiquetaId} tags={allTags} /> {/* 'tagIds' -> 'etiquetaId' */}
             </div>
             {task.description && <p className="text-gray-600 mb-4 whitespace-pre-wrap">{task.description}</p>}
             <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-6">
-                <div><strong className="block text-gray-500">Responsável:</strong> {task.assignee?.name || 'Ninguém'}</div>
-                <div><strong className="block text-gray-500">Data de Entrega:</strong> {task.dueDate ? new Date(task.dueDate).toLocaleDateString('pt-BR') : 'Não definida'}</div>
+                <div><strong className="block text-gray-500">Responsável:</strong> {task.user?.nome || 'Ninguém'}</div> {/* 'assignee.name' -> 'user.nome' */}
+                <div><strong className="block text-gray-500">Data de Entrega:</strong> {task.data ? new Date(task.data).toLocaleDateString('pt-BR') : 'Não definida'}</div> {/* 'dueDate' -> 'data' */}
             </div>
 
             <div className="border-t pt-4">
                 <h4 className="font-semibold text-gray-700 mb-3">Atividade</h4>
                 <div className="space-y-4 mb-4 max-h-40 overflow-y-auto">
-                    {(task.comments || []).map((comment, index) => (
+                    {/* 'comments' -> 'coment' */}
+                    {(task.coment || []).map((comment, index) => ( 
                         <div key={index} className="flex items-start gap-3">
                             <div className="bg-gray-200 rounded-full h-8 w-8 flex items-center justify-center font-bold text-sm text-gray-600 flex-shrink-0">{comment.author.charAt(0)}</div>
                             <div>

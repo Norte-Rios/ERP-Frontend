@@ -12,8 +12,10 @@ interface UserListPageProps {
 
 const getStatusClass = (status: User['status']) => {
   switch (status) {
-    case 'active': return 'bg-green-100 text-green-800';
-    case 'inactive': return 'bg-red-100 text-red-800';
+    // CORREÇÃO 1: Mudar de 'active' para 'ativo'
+    case 'ativo': return 'bg-green-100 text-green-800';
+    // CORREÇÃO 2: Mudar de 'inactive' para 'inativo'
+    case 'inativo': return 'bg-red-100 text-red-800';
     default: return 'bg-gray-100 text-gray-800';
   }
 };
@@ -48,7 +50,7 @@ const UserListPage: React.FC<UserListPageProps> = () => {
   // ✅ Salvar/Atualizar usuário (POST /users ou PATCH /users/:id)
   const handleSaveUser = async (userData: Omit<User, 'id' | 'lastLogin'> | User) => {
     try {
-      setLoading(true);
+      setLoading(true); // <-- Ativa o loading
       setError(null);
       if ('id' in userData) {
         // Update: PATCH /users/:id
@@ -65,7 +67,7 @@ const UserListPage: React.FC<UserListPageProps> = () => {
       console.error('Erro ao salvar usuário:', err);
       setError(err.response?.data?.message || 'Erro ao salvar usuário.');
     } finally {
-      setLoading(false);
+      setLoading(false); // <-- Desativa o loading
     }
   };
 
@@ -105,11 +107,11 @@ const UserListPage: React.FC<UserListPageProps> = () => {
   };
 
   // ✅ Loading e Error States
-  if (loading) {
+  if (loading && users.length === 0) { // Modificado para só mostrar loading total na primeira carga
     return <div className="container mx-auto p-8 text-center">Carregando usuários...</div>;
   }
 
-  if (error) {
+  if (error && users.length === 0) { // Modificado para só mostrar erro fatal se não houver dados
     return (
       <div className="container mx-auto p-8">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -127,6 +129,7 @@ const UserListPage: React.FC<UserListPageProps> = () => {
         onClose={handleCloseModal}
         onSave={handleSaveUser}
         userToEdit={userToEdit}
+        loading={loading} // <-- CORREÇÃO 3: Prop 'loading' adicionada
       />
        {/* Modal de Confirmação de Exclusão */}
       {userToDelete && (
@@ -136,18 +139,22 @@ const UserListPage: React.FC<UserListPageProps> = () => {
             <p className="text-gray-600 mt-4">
               Tem a certeza de que deseja apagar o utilizador "{userToDelete.nome}"? Esta ação não pode ser desfeita.
             </p>
+            {/* Mostra erro de delete aqui */}
+            {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
             <div className="mt-6 flex justify-end gap-4">
               <button
                 onClick={() => setUserToDelete(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold"
+                disabled={loading} // Desabilita no loading
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-semibold"
+                disabled={loading} // Desabilita no loading
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-semibold disabled:opacity-50"
               >
-                Apagar
+                {loading ? 'Apagando...' : 'Apagar'}
               </button>
             </div>
           </div>
@@ -163,6 +170,14 @@ const UserListPage: React.FC<UserListPageProps> = () => {
             Novo Utilizador
         </button>
       </div>
+
+      {/* Mostra erro não-fatal (ex: falha ao salvar) acima da tabela */}
+      {error && users.length > 0 && (
+         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+          <span className="block sm:inline">{error}</span>
+          <button onClick={() => setError(null)} className="absolute top-0 bottom-0 right-0 px-4 py-3">&times;</button>
+        </div>
+      )}
 
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <table className="min-w-full leading-normal">

@@ -4,34 +4,34 @@ import { User } from './types';
 export const mockUsers: User[] = [
     {
         id: 'USR-001',
-        name: 'Admin Master',
+        nome: 'Admin Master',
         email: 'admin.master@norterios.com',
-        role: 'Admin',
-        status: 'Active',
+        role: 'admin master',
+        status: 'ativo',
         lastLogin: '2025-10-20T10:00:00Z'
     },
     {
         id: 'USR-002',
-        name: 'Carlos Silva',
+        nome: 'Carlos Silva',
         email: 'carlos.silva@consultoria.com',
         role: 'Consultant',
-        status: 'Active',
+        status: 'ativo',
         lastLogin: '2025-10-19T15:30:00Z'
     },
     {
         id: 'USR-003',
-        name: 'Sued Silva',
+        nome: 'Sued Silva',
         email: 'sued.silva@norterios.com',
-        role: 'Operational',
-        status: 'Active',
+        role: 'operational',
+        status: 'ativo',
         lastLogin: '2025-10-20T09:15:00Z'
     },
     {
         id: 'USR-004',
-        name: 'Carlos Andrade',
+        nome: 'Carlos Andrade',
         email: 'carlos.andrade@techsolutions.com',
         role: 'Client',
-        status: 'Inactive',
+        status: 'inativo',
         lastLogin: '2025-09-10T11:00:00Z'
     },
 ];
