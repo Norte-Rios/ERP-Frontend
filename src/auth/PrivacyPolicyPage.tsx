@@ -7,12 +7,16 @@ const PrivacyPolicyPage = () => {
     <div className="container mx-auto max-w-4xl p-6 md:p-10 bg-white shadow-md rounded-lg my-10">
       <h1 className="text-3xl font-bold mb-4 text-gray-800">Política de Privacidade</h1>
       <p className="mb-4 text-gray-600">
-        <strong>Última atualização:</strong> 29 de Outubro de 2025
+        <strong>Última atualização:</strong> 12 de Novembro de 2025
       </p>
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">1. Introdução</h2>
       <p className="mb-3 text-gray-700">
-        Bem-vindo(a) ao <strong>[Nome da Sua Aplicação]</strong> ("nós", "nosso"). Esta Política de Privacidade explica como coletamos, usamos, armazenamos e protegemos suas informações quando você utiliza nosso serviço, especialmente em relação à sua integração com as APIs do Google.
+        Este documento estabelece a nossa Política de Privacidade. Na <strong>ERP-Norte</strong>, levamos a sua privacidade e a segurança dos seus dados a sério. Acreditamos na transparência total sobre como lidamos com as informações que você nos confia.
+
+Esta Política detalha, de forma clara e simples, quais dados coletamos, como eles são utilizados e quais são os nossos compromissos inegociáveis, especialmente no que tange à integração e uso das suas informações do Google Calendar e à conformidade com as políticas do Google.
+
+Ao utilizar nosso aplicativo, você reconhece ter lido e compreendido esta política.
       </p>
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">2. Coleta de Dados</h2>
@@ -47,8 +51,9 @@ const PrivacyPolicyPage = () => {
           rel="noopener noreferrer"
           className="text-indigo-600 hover:underline"
         >
-          Política de Dados do Usuário dos Serviços de API do Google
+          {' '}Política de Dados do Usuário dos Serviços de API do Google
         </a>, incluindo os requisitos de <strong>Uso Limitado (Limited Use)</strong>.
+        {' '}
       </p>
       <p className="mb-3 text-gray-700">
         Os dados obtidos (eventos da sua agenda) são usados unicamente para fornecer e melhorar os recursos de agendamento visíveis ao usuário em nossa interface.
@@ -58,13 +63,14 @@ const PrivacyPolicyPage = () => {
       <p className="mb-3 text-gray-700">
         Você pode revogar o acesso do <strong>ERP-Norte</strong> à sua Conta Google a qualquer momento, visitando a página de 
         <a 
+        
           href="https://myaccount.google.com/permissions" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-indigo-600 hover:underline"
         >
-          permissões da sua Conta Google
-        </a>. Você também pode usar o botão "Desconectar" em nosso aplicativo.
+          {' '}permissões da sua Conta Google
+        </a>. Você também pode usar o botão "Desconectar" em nosso aplicativo.{' '}
       </p>
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">6. Contato</h2>

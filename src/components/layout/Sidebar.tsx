@@ -97,10 +97,6 @@ const Sidebar = () => {
             <Video className="mr-3 h-5 w-5" />
             Meet
           </NavLink>
-          <NavLink to="/operational/dashboard" className={navLinkClass}>
-            <ShieldAlert className="mr-3 h-5 w-5 text-yellow-400" />
-            Dashboard Op.
-          </NavLink>
         </SubMenu>
 
         {/* Grupo Cadastros */}

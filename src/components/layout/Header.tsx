@@ -23,7 +23,7 @@ type Task = {
 };
 // ---------------------------------------------------
 
-const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; // Define API URL
+const API_URL = import.meta.env.VITE_BACKEND_URL; // Define API URL
 
 const Header = ({ documents, services }: { documents: Document[]; services: Service[] }) => {
   // Estados para controlar a visibilidade dos dropdowns
@@ -59,15 +59,6 @@ const Header = ({ documents, services }: { documents: Document[]; services: Serv
   }, []); // Executa apenas na montagem
   // -------------------
 
-  // Calcula o número de novos documentos e serviços (sem alterações)
-  const newDocsCount = useMemo(() => {
-    return documents.filter(doc => doc.status === 'Recebido' || doc.status === 'Enviado').length;
-  }, [documents]);
-
-  const newServicesCount = useMemo(() => {
-    return services.filter(service => service.status === 'Pendente').length;
-  }, [services]);
-
   // --- Calcula Tarefas Novas (Exemplo: status 'a fazer') ---
   const newTasks = useMemo(() => {
     // Define which status indicates a "new" task notification
@@ -75,7 +66,7 @@ const Header = ({ documents, services }: { documents: Document[]; services: Serv
   }, [tasks]);
   // ----------------------------------------------------
 
-  const totalNotifications = newDocsCount + newServicesCount + newTasks.length;
+  const totalNotifications =  newTasks.length;
 
   // Lógica para o lembrete de beber água (sem alterações)
   const showWaterReminder = weather.temp > 25 || weather.humidity < 50;
@@ -156,26 +147,9 @@ const Header = ({ documents, services }: { documents: Document[]; services: Serv
                                 </>
                             )}
 
-                            {/* Service Notifications */}
-                            {newServicesCount > 0 && (
-                                <li className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
-                                    <a href="/services" className="flex items-center gap-2">
-                                        <span className="font-semibold text-green-600">Serviço:</span>
-                                        <span>{newServicesCount} novo(s) pedido(s).</span>
-                                     </a>
-                                </li>
-                            )}
+                            
 
-                            {/* Document Notifications */}
-                            {newDocsCount > 0 && (
-                                <li className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
-                                    <a href="/documents" className="flex items-center gap-2">
-                                         <FileText size={16} className='text-gray-400 shrink-0'/> {/* Icon Example */}
-                                        <span>{newDocsCount} novo(s) documento(s).</span>
-                                     </a>
-                                </li>
-                            )}
-
+                            
                             {/* No New Notifications Message */}
                             {!isLoadingTasks && totalNotifications === 0 && (
                                 <li className="px-4 py-2 text-sm text-gray-500">Nenhuma notificação nova.</li>

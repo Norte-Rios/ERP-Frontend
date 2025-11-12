@@ -51,6 +51,31 @@ const LoginPage = () => {
     }
   };
 
+  // --- Função de Renderização dos Links ---
+  const renderPolicyLinks = () => (
+    <div className="mt-6 text-center text-xs text-gray-300">
+      Ao entrar, você concorda com os nossos 
+      <a 
+        href="https://erp-norterios.web.app/terms-of-service" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-white font-bold hover:text-brand-yellow ml-1 underline transition-colors"
+      >
+        {' '}Termos de Serviço 
+      </a> 
+       {' '}e{' '}
+      <a
+        href="https://erp-norterios.web.app/privacy-policy"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-white font-bold hover:text-brand-yellow ml-1 underline transition-colors"
+      >
+        {' '}Política de Privacidade
+      </a>.
+    </div>
+  );
+  // ----------------------------------------
+
   const renderLoginView = () => (
     <>
       <div className="text-center">
@@ -129,6 +154,7 @@ const LoginPage = () => {
           </button>
         </div>
       </form>
+      {renderPolicyLinks()}
     </>
   );
 
