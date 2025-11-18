@@ -1,672 +1,840 @@
-import React, { useState, useEffect, useMemo } from 'react';
-// ATUALIZADO: Importações de tipos e ícones
-import { TaskBoard, Task, Tag, Comment as FrontendComment } from '../../admin/tasks/types'; // Importando 'FrontendComment' como 'Comment'
-import { User, Calendar, MessageSquare, X, Loader2, AlertCircle, Trash2, Edit } from 'lucide-react'; 
+import React, { useState, useEffect, useCallback } from 'react';
+import { TaskBoard, Task, Tag, Comment as FrontendComment } from '../../admin/tasks/types';
+import { Calendar, MessageSquare, X, Loader2, AlertCircle } from 'lucide-react';
 import {
-  DndContext,
-  closestCorners,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragOverlay,
-  DragStartEvent,
-  DragEndEvent,
+  DndContext,
+  closestCorners,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  DragStartEvent,
+  DragEndEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useDroppable } from '@dnd-kit/core';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL;
-const API_COMMENT_URL = `${API_URL}/comments`; // Nova URL de API
+const API_COMMENT_URL = `${API_URL}/comments`;
+const API_TASKS_URL = `${API_URL}/tasks`;
 
-// --- Tipos de Comentário (NOVOS) ---
-// Tipo do comentário como vem do Backend
-export interface BackendComment {
-  id: string;
-  comment: string;
-  user: { id: string; nome: string; };
-  createdAt: string;
+// --- Injeção de estilos das etiquetas ---
+const styles = `
+  .tag-3b82f6 { background-color: #3B82F6 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+  .tag-10b981 { background-color: #10B981 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+  .tag-ef4444 { background-color: #EF4444 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+  .tag-f59e0b { background-color: #F59E0B !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+  .tag-8b5cf6 { background-color: #8B5CF6 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+  .tag-ec4899 { background-color: #EC4899 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+`;
+
+if (typeof document !== 'undefined') {
+  const styleId = 'taskboard-tag-styles';
+  let styleSheet = document.getElementById(styleId);
+  if (!styleSheet) {
+    styleSheet = document.createElement('style');
+    styleSheet.id = styleId;
+    styleSheet.innerText = styles;
+    document.head.appendChild(styleSheet);
+  }
 }
-// Tipo do comentário como usado no Frontend (já importado como FrontendComment)
 
+// --- Tipos de comentário vinda do backend ---
+export interface BackendComment {
+  id: string;
+  comment: string;
+  user: { id: string; nome: string };
+  createdAt: string;
+}
 
-// --- Funções de API de Comentários (NOVAS) ---
+// --- Funções de API de Comentários ---
 const apiGetCommentsByTask = async (taskId: string): Promise<BackendComment[]> => {
-  try {
-    const response = await axios.get<BackendComment[]>(`${API_COMMENT_URL}/task/${taskId}`);
-    return Array.isArray(response.data) ? response.data : [];
-  } catch (error) {
-    console.error(`Erro ao buscar comentários para task ${taskId}:`, error);
-    throw error;
-  }
+  try {
+    const response = await axios.get<BackendComment[]>(`${API_COMMENT_URL}/task/${taskId}`);
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error(`Erro ao buscar comentários para task ${taskId}:`, error);
+    throw error;
+  }
 };
 
 const apiAddComment = async (taskId: string, commentText: string, userId: string): Promise<BackendComment> => {
-  try {
-    const response = await axios.post<BackendComment>(`${API_COMMENT_URL}`, {
-      comment: commentText,
-      userId: userId,
-      taskId: taskId,
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Erro ao adicionar comentário:", error);
-    throw error;
-  }
+  try {
+    const response = await axios.post<BackendComment>(`${API_COMMENT_URL}`, {
+      comment: commentText,
+      userId,
+      taskId,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao adicionar comentário:', error);
+    throw error;
+  }
 };
 
-
-// --- Backend Task Type (Sem alterações) ---
+// --- Tipo de Task vindo do backend ---
 type BackendTask = {
-  id: string;
-  titulo: string | null;
-  user: { id: string; nome: string } | null;
-  data: string;
-  status: string;
-  etiqueta: Tag | null;
-  description: string | null;
-  comment: any[] | null; // Note que o backend parece retornar 'comment' no singular
+  id: string;
+  titulo: string | null;
+  user: { id: string; nome: string }[] | null;
+  data: string;
+  status: string;
+  etiqueta: Tag[] | null;
+  description: string | null;
+  comment: any[] | null;
 };
 
-// --- Initial Board Structure (Sem alterações) ---
+// --- Estrutura inicial do board ---
 const initialBoardStructure: TaskBoard = {
-  columns: {
-    'a fazer': { id: 'a fazer', title: 'A Fazer', taskIds: [] },
-    'em andamento': { id: 'em andamento', title: 'Em Andamento', taskIds: [] },
-    'em revisão': { id: 'em revisão', title: 'Em Revisão', taskIds: [] },
-    'concluído': { id: 'concluído', title: 'Concluído', taskIds: [] },
-  },
-  columnOrder: ['a fazer', 'em andamento', 'em revisão', 'concluído'],
-  tasks: {},
-  tags: {},
+  columns: {
+    'a fazer': { id: 'a fazer', title: 'A Fazer', taskIds: [] },
+    'em andamento': { id: 'em andamento', title: 'Em Andamento', taskIds: [] },
+    'em revisão': { id: 'em revisão', title: 'Em Revisão', taskIds: [] },
+    concluído: { id: 'concluído', title: 'Concluído', taskIds: [] },
+  },
+  columnOrder: ['a fazer', 'em andamento', 'em revisão', 'concluído'],
+  tasks: {},
+  tags: {},
 };
 
-// --- TaskTags Component (CORRIGIDO) ---
-const TaskTags = ({ tagId, tags }: { tagId: string | null | undefined; tags: Record<string, Tag> }) => {
-  if (!tagId) return null; // Alterado de tagIds (array) para tagId (string)
+// --- Componente de etiquetas ---
+const TaskTags = ({ etiquetas }: { etiquetas: Tag[] | undefined }) => {
+  if (!etiquetas || etiquetas.length === 0) return null;
 
-  const getContrastingTextColor = (hex: string) => {
-    if (!hex) return '#000000';
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-    return yiq >= 128 ? '#1f2937' : '#FFFFFF'; 
-  };
-
-  const tag = tags[tagId];
-  if (!tag) return null;
-  
-  const tagStyle = {
-    backgroundColor: tag.color || '#E5E7EB',
-    color: getContrastingTextColor(tag.color),
-  };
-
-  return (
-    <div className="flex flex-wrap gap-1 mt-2">
-      <span
-        key={tag.id}
-        className="px-2 py-0.5 text-xs font-semibold rounded-full"
-        style={tagStyle}
-      >
-        {tag.nome} {/* 'name' -> 'nome' */}
-      </span>
-    </div>
-  );
+  return (
+    <div className="flex flex-wrap gap-1 mt-1 mb-1">
+      {etiquetas.map((tag) => {
+        if (!tag || !tag.color) return null;
+        const cleanColor = tag.color.startsWith('#') ? tag.color.substring(1) : tag.color;
+        const colorClass = `tag-${cleanColor.toLowerCase()}`;
+        return (
+          <span key={tag.id} className={colorClass}>
+            {tag.nome}
+          </span>
+        );
+      })}
+    </div>
+  );
 };
 
-// --- TaskCard Component (CORRIGIDO) ---
-// Props agora são opcionais para o DragOverlay
+// --- Card da task ---
 interface TaskCardProps {
   task: Task;
-  tags: Record<string, Tag>;
-  innerRef?: React.Ref<HTMLDivElement>;
+  onClick?: (task: Task) => void;
   style?: React.CSSProperties;
-  onClick?: () => void;
+  innerRef?: React.Ref<HTMLDivElement>;
+  [key: string]: any;
 }
 
-const TaskCard = ({ task, tags, innerRef, style, onClick, ...props }: TaskCardProps) => {
-  return (
-    <div
-      ref={innerRef}
-      style={style}
-      onClick={onClick} // ✅ Adicionado
-      {...props} 
-      className="bg-white p-3 rounded-md shadow-sm border border-gray-200 cursor-grab"
-    >
-      <h4 className="font-semibold text-sm text-gray-800 mb-2">{task.titulo}</h4> {/* 'title' -> 'titulo' */}
-      <TaskTags tagId={task.etiquetaId} tags={tags} /> {/* 'tagIds' -> 'etiquetaId' */}
-      <div className="flex justify-between items-center text-xs text-gray-500 mt-3 pt-2 border-t">
-        <div className="flex items-center gap-2">
-          {task.data && ( // 'dueDate' -> 'data'
-            <div className="flex items-center gap-1">
-              <Calendar size={12} />
-              <span>{new Date(task.data).toLocaleDateString('pt-BR')}</span> {/* 'dueDate' -> 'data' */}
-            </div>
-          )}
-          {task.coment && task.coment.length > 0 && ( // 'comments' -> 'coment'
-            <div className="flex items-center gap-1">
-              <MessageSquare size={12} />
-              <span>{task.coment.length}</span> {/* 'comments' -> 'coment' */}
-            </div>
-          )}
-        </div>
-        {task.user && ( // 'assignee' -> 'user'
-          <div className="flex items-center gap-1" title={task.user.nome}> {/* 'assignee.name' -> 'user.nome' */}
-            <User size={14} />
-            <span className="font-medium">{task.user.nome.split(' ')[0]}</span> {/* 'assignee.name' -> 'user.nome' */}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+const TaskCard = ({ task, onClick, style, innerRef, ...rest }: TaskCardProps) => {
+  return (
+    <div
+      ref={innerRef}
+      style={style}
+      onClick={() => onClick && onClick(task)}
+      {...rest}
+      className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-grab relative overflow-hidden"
+    >
+      <h4 className="font-semibold text-sm text-gray-800 mb-2">{task.titulo}</h4>
+
+      <TaskTags etiquetas={task.etiquetas} />
+
+      <div className="flex justify-between items-center text-xs text-gray-500 mt-3 pt-2 border-t">
+        <div className="flex items-center gap-2">
+          {task.data && (
+            <div className="flex items-center gap-1">
+              <Calendar size={12} />
+              <span>{new Date(task.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+            </div>
+          )}
+          {task.coment && task.coment.length > 0 && (
+            <div className="flex items-center gap-1">
+              <MessageSquare size={12} />
+              <span>{task.coment.length}</span>
+            </div>
+          )}
+        </div>
+
+        {task.users && task.users.length > 0 ? (
+          <div
+            className="flex -space-x-2 overflow-hidden"
+            title={task.users.map((u) => u.nome).join(', ')}
+          >
+            {task.users.slice(0, 3).map((user) => (
+              <div
+                key={user.id}
+                className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700"
+                title={user.nome}
+              >
+                {user.nome ? user.nome.charAt(0).toUpperCase() : '?'}
+              </div>
+            ))}
+            {task.users.length > 3 && (
+              <div className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-gray-400 flex items-center justify-center text-xs font-semibold text-white">
+                +{task.users.length - 3}
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="text-gray-400 italic">N/A</span>
+        )}
+      </div>
+    </div>
+  );
 };
 
-// --- SortableTaskItem Component (CORRIGIDO) ---
-// Adicionado 'onClick' para repassar ao TaskCard
-const SortableTaskItem = ({ task, tags, onClick }: { task: Task, tags: Record<string, Tag>, onClick: () => void }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <TaskCard
-      task={task}
-      tags={tags}
-      innerRef={setNodeRef}
-      style={style}
-      onClick={onClick} // ✅ Adicionado
-      {...attributes}
-      {...listeners}
-    />
-  );
-};
-
-// --- TaskColumn Component (ATUALIZADO) ---
-// Adicionado 'onTaskClick' para receber o evento
-const TaskColumn = ({ column, tasks, tags, onTaskClick }: { 
-  column: TaskBoard['columns'][string], 
-  tasks: Task[], 
-  tags: Record<string, Tag>,
-  onTaskClick: (task: Task) => void // ✅ Adicionado
+// --- ÚNICO SortableTaskItem ---
+const SortableTaskItem = ({
+  task,
+  onClick,
+}: {
+  task: Task;
+  onClick: (task: Task) => void;
 }) => {
-  const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
-  });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
 
-  return (
-    <div
-      className={`p-3 min-h-[300px] flex flex-col rounded-lg ${
-        isOver ? 'bg-blue-100' : 'bg-gray-100'
-      }`}
-    >
-      <div className="flex justify-between items-center mb-4 px-1">
-        <h3 className="font-bold text-gray-700 capitalize">
-          {column.title}{' '}
-          <span className="text-sm text-gray-400 font-normal">{tasks.length}</span>
-        </h3>
-      </div>
-      
-      <SortableContext
-        items={column.taskIds}
-        strategy={verticalListSortingStrategy}
-     >
-        <div ref={setNodeRef} className="space-y-3 flex-grow min-h-[100px]">
-          {tasks.map((task) => (
-            <SortableTaskItem
-              key={task.id}
-              task={task}
-              tags={tags}
-              onClick={() => onTaskClick(task)} // ✅ Adicionado
-            />
-          ))}
-        </div>
-      </SortableContext>
-    </div>
-  );
-}
+  const firstTagColor = task.etiquetas?.[0]?.color || 'transparent';
 
-// ---------------------------------------------------
-// --- NOVO COMPONENTE: TaskDetailModal ---
-// ---------------------------------------------------
-const TaskDetailModal = ({ isOpen, onClose, task, tags, currentUser, onCommentAdded }: any) => {
-  const [comments, setComments] = useState<FrontendComment[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [commentLoading, setCommentLoading] = useState(false);
-  const [error, setError] = useState('');
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    borderTop: `4px solid ${firstTagColor}`,
+  };
 
-  // Carrega comentários quando o modal abre ou a tarefa muda
-  useEffect(() => {
-    if (isOpen && task) {
-      const loadComments = async () => {
-        setCommentLoading(true);
-        setError('');
-        setComments([]); // Limpa comentários antigos
-        try {
-          const fetchedComments = await apiGetCommentsByTask(task.id);
-          const frontendComments = fetchedComments.map(beComment => ({
-            id: beComment.id,
-            text: beComment.comment,
-            author: beComment.user?.nome || 'Desconhecido',
-            date: beComment.createdAt
-          })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setComments(frontendComments);
-        } catch (err) {
-          setError("Falha ao carregar comentários.");
-        } finally {
-          setCommentLoading(false);
-        }
-      };
-      loadComments();
-    } else {
-      // Limpa ao fechar
-      setNewComment('');
-      setError('');
-      setComments([]);
-    }
-  }, [task, isOpen]);
-
-  const handleAddComment = async () => {
-    if (!newComment.trim() || !currentUser?.id || !task?.id) {
-      if (!currentUser?.id) setError("Utilizador não logado.");
-      return;
-    }
-
-    setCommentLoading(true);
-    setError('');
-    
-    try {
-      const newBackendComment = await apiAddComment(task.id, newComment.trim(), currentUser.id);
-      
-      const finalFrontendComment: FrontendComment = {
-        id: newBackendComment.id,
-        text: newBackendComment.comment,
-        author: newBackendComment.user.nome,
-        date: newBackendComment.createdAt
-      };
-
-      // Adiciona o novo comentário no topo (mais recente)
-      setComments(prev => [finalFrontendComment, ...prev]);
-      setNewComment(''); // Limpa o input
-      
-      // Chama o callback para atualizar a contagem no board principal
-      onCommentAdded(task.id, finalFrontendComment);
-
-    } catch (error) {
-      console.error("Erro comentário:", error);
-      setError("Falha ao adicionar comentário.");
-    } finally {
-      setCommentLoading(false);
-    }
-  };
-
-  if (!isOpen || !task) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        
-        {/* Cabeçalho do Modal */}
-        <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-bold text-gray-800">{task.titulo}</h3> {/* 'title' -> 'titulo' */}
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200"><X size={20} /></button>
-        </div>
-        {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2"><AlertCircle size={16} /> {error}</div>}
-
-        {/* Conteúdo e Detalhes */}
-        <div className="flex-grow overflow-y-auto pr-2 max-h-[calc(90vh-160px)]">
-          <TaskTags tagId={task.etiquetaId} tags={tags} /> {/* 'tagIds' -> 'etiquetaId' */}
-          {task.description && <p className="text-gray-600 my-4 whitespace-pre-wrap">{task.description}</p>} {/* 'content' -> 'description' */}
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-6">
-            <div><strong className="block text-gray-500">Responsável:</strong> {task.user?.nome || 'Não atribuída'}</div> {/* 'assignee.name' -> 'user.nome' */}
-            <div><strong className="block text-gray-500">Data:</strong> {task.data ? new Date(task.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Não definida'}</div> {/* 'dueDate' -> 'data' */}
-          </div>
-
-          {/* Seção de Comentários */}
-          <div className="border-t pt-4">
-            <h4 className="font-semibold text-gray-700 mb-3">Comentários ({comments.length})</h4>
-            
-            {/* Lista de Comentários */}
-            <div className="space-y-3 mb-4 max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50">
-              {commentLoading && comments.length === 0 ? (
-                <div className="flex justify-center items-center py-4"><Loader2 className="animate-spin h-5 w-5 text-gray-400" /></div>
-              ) : comments.length === 0 ? (
-                <p className="text-sm text-gray-500 italic text-center py-2">Nenhum comentário.</p>
-              ) : (
-                comments.map((comment) => (
-                  <div key={comment.id} className="flex items-start gap-3">
-                    <div className="bg-gray-300 rounded-full h-8 w-8 flex items-center justify-center font-semibold text-sm text-gray-600 flex-shrink-0" title={comment.author}>
-                      {comment.author ? comment.author.charAt(0).toUpperCase() : '?'}
-                    </div>
-                    <div className="flex-1 bg-white p-2 rounded shadow-sm border border-gray-200">
-                      <p className="font-semibold text-sm text-gray-800">
-                        {comment.author || 'Desconhecido'}
-                        <span className="text-xs text-gray-400 font-normal ml-1">
-                          {comment.date ? new Date(comment.date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}) : ''}
-                        </span>
-                      </p>
-                      <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{comment.text}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            {/* Input Novo Comentário */}
-            <div className="flex items-center gap-2 mt-2">
-              <input 
-                type="text" 
-                value={newComment} 
-                onChange={e => setNewComment(e.target.value)} 
-                onKeyDown={e => e.key === 'Enter' && !commentLoading && handleAddComment()}
-                placeholder="Adicionar comentário..." 
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" 
-                disabled={commentLoading} 
-              />
-              <button 
-                onClick={handleAddComment} 
-                disabled={commentLoading || !newComment.trim()} 
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center w-28 text-sm"
-              >
-                {commentLoading ? <Loader2 className="animate-spin h-4 w-4" /> : 'Comentar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      
-        {/* Botões de Ação (ex: Editar/Apagar - Opcional) */}
-        {/*         <div className="mt-auto flex justify-end gap-3 border-t pt-4">
-          <button className="px-4 py-2 bg-red-100 text-red-700 rounded-md ..."><Trash2 size={16} /> Apagar</button>
-          <button className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md ..."><Edit size={16} /> Editar</button>
-        </div> 
-        */}
-      </div>
-    </div>
-  );
+  return (
+    <TaskCard
+      task={task}
+      innerRef={setNodeRef}
+      style={style}
+      onClick={onClick}
+      {...attributes}
+      {...listeners}
+    />
+  );
 };
 
+// --- Coluna (droppable + lista de SortableTaskItem) ---
+const TaskColumn = ({
+  column,
+  tasks,
+  onTaskClick,
+}: {
+  column: TaskBoard['columns'][string];
+  tasks: Task[];
+  onTaskClick: (task: Task) => void;
+}) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: column.id,
+  });
 
-// --- Main Component ---
+  return (
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 min-h-[300px] flex flex-col shadow-sm border">
+      <div className="flex justify-between items-center mb-4 px-1">
+        <h3 className="font-bold text-gray-700 capitalize">
+          {column.title}{' '}
+          <span className="text-sm text-gray-400 font-normal">{tasks.length}</span>
+        </h3>
+      </div>
+
+      <SortableContext items={column.taskIds} strategy={verticalListSortingStrategy}>
+        <div
+          ref={setNodeRef}
+          className={`space-y-3 flex-grow min-h-[100px] rounded-md transition-colors ${
+            isOver ? 'bg-indigo-100' : 'bg-transparent'
+          }`}
+        >
+          {tasks.map((task) => (
+            <SortableTaskItem
+              key={task.id}
+              task={task}
+              onClick={() => onTaskClick(task)}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </div>
+  );
+};
+
+// --- Modal de detalhes da Task ---
+interface TaskDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: Task | null;
+  currentUser: { id: string; [key: string]: any } | null;
+  onCommentAdded: (taskId: string, comment: FrontendComment) => void;
+}
+
+const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
+  isOpen,
+  onClose,
+  task,
+  onCommentAdded,
+  currentUser,
+}) => {
+  const [comments, setComments] = useState<FrontendComment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen && task) {
+      const loadComments = async () => {
+        setCommentLoading(true);
+        setError('');
+        setComments([]);
+        try {
+          const fetchedComments = await apiGetCommentsByTask(task.id);
+          const frontendComments: FrontendComment[] = fetchedComments
+            .map((beComment) => ({
+              id: beComment.id,
+              text: beComment.comment,
+              author: beComment.user?.nome || 'Desconhecido',
+              date: beComment.createdAt,
+            }))
+            .sort(
+              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+            );
+          setComments(frontendComments);
+        } catch {
+          setError('Falha ao carregar comentários.');
+        } finally {
+          setCommentLoading(false);
+        }
+      };
+      loadComments();
+    } else {
+      setNewComment('');
+      setError('');
+      setComments([]);
+    }
+  }, [task, isOpen]);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !currentUser?.id || !task?.id) {
+      if (!currentUser?.id) setError('Utilizador não logado.');
+      return;
+    }
+
+    setCommentLoading(true);
+    setError('');
+
+    try {
+      const newBackendComment = await apiAddComment(
+        task.id,
+        newComment.trim(),
+        currentUser.id,
+      );
+
+      const finalFrontendComment: FrontendComment = {
+        id: newBackendComment.id,
+        text: newBackendComment.comment,
+        author: newBackendComment.user.nome,
+        date: newBackendComment.createdAt,
+      };
+
+      setComments((prev) => [finalFrontendComment, ...prev]);
+      setNewComment('');
+      onCommentAdded(task.id, finalFrontendComment);
+    } catch (error) {
+      console.error('Erro comentário:', error);
+      setError('Falha ao adicionar comentário.');
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  if (!isOpen || !task) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-xl font-bold text-gray-800">{task.titulo}</h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-gray-200"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+
+        <div className="flex-grow overflow-y-auto pr-2 max-h-[calc(90vh-160px)]">
+          <TaskTags etiquetas={task.etiquetas} />
+
+          {task.description && (
+            <p className="text-gray-600 my-4 whitespace-pre-wrap">
+              {task.description}
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-6">
+            <div>
+              <strong className="block text-gray-500">Responsáveis:</strong>
+              {task.users && task.users.length > 0
+                ? task.users.map((u) => u.nome).join(', ')
+                : 'Não atribuída'}
+            </div>
+            <div>
+              <strong className="block text-gray-500">Data:</strong>{' '}
+              {task.data
+                ? new Date(task.data).toLocaleDateString('pt-BR', {
+                    timeZone: 'UTC',
+                  })
+                : 'Não definida'}
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <h4 className="font-semibold text-gray-700 mb-3">
+              Comentários ({comments.length})
+            </h4>
+
+            <div className="space-y-3 mb-4 max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50">
+              {commentLoading && comments.length === 0 ? (
+                <div className="flex justify-center items-center py-4">
+                  <Loader2 className="animate-spin h-5 w-5 text-gray-400" />
+                </div>
+              ) : comments.length === 0 ? (
+                <p className="text-sm text-gray-500 italic text-center py-2">
+                  Nenhum comentário.
+                </p>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="flex items-start gap-3">
+                    <div
+                      className="bg-gray-300 rounded-full h-8 w-8 flex items-center justify-center font-semibold text-sm text-gray-600 flex-shrink-0"
+                      title={comment.author}
+                    >
+                      {comment.author
+                        ? comment.author.charAt(0).toUpperCase()
+                        : '?'}
+                    </div>
+                    <div className="flex-1 bg-white p-2 rounded shadow-sm border border-gray-200">
+                      <p className="font-semibold text-sm text-gray-800">
+                        {comment.author || 'Desconhecido'}
+                        <span className="text-xs text-gray-400 font-normal ml-1">
+                          {comment.date
+                            ? new Date(comment.date).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : ''}
+                        </span>
+                      </p>
+                      <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
+                        {comment.text}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={(e) =>
+                  e.key === 'Enter' && !commentLoading && handleAddComment()
+                }
+                placeholder="Adicionar comentário..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                disabled={commentLoading}
+              />
+              <button
+                onClick={handleAddComment}
+                disabled={commentLoading || !newComment.trim()}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center w-28 text-sm"
+              >
+                {commentLoading ? (
+                  <Loader2 className="animate-spin h-4 w-4" />
+                ) : (
+                  'Comentar'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Página principal ---
 interface OperationalTasksPageProps {
-  currentUser: { id: string; fullName: string; role: string; [key: string]: any };
+  currentUser: { id: string; fullName: string; role: string; [key: string]: any };
 }
 
 const OperationalTasksPage: React.FC<OperationalTasksPageProps> = ({ currentUser }) => {
-  const [boardData, setBoardData] = useState<TaskBoard | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-  
-  // ✅ NOVO ESTADO: Gerencia qual task está no modal
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [boardData, setBoardData] = useState<TaskBoard | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const statusMap: { [key: string]: string } = { // Tipagem adicionada
-    AFAZER: 'a fazer',
-    EMANDAMENTO: 'em andamento',
-    EMREVISAO: 'em revisão',
-    CONCLUIDO: 'concluído',
-  };
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        setIsLoading(true);
+        const { data: tasksFromDb } = await axios.get<BackendTask[]>(API_TASKS_URL);
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setIsLoading(true);
-        const { data: tasksFromDb } = await axios.get<BackendTask[]>(`${API_URL}/tasks`);
+        const newBoard: TaskBoard = { ...initialBoardStructure, tasks: {}, tags: {} };
+        Object.keys(newBoard.columns).forEach((key) => {
+          newBoard.columns[key] = { ...newBoard.columns[key], taskIds: [] };
+        });
 
-        const newBoard: TaskBoard = { ...initialBoardStructure, tasks: {}, tags: {} };
-        Object.keys(newBoard.columns).forEach(key => {
-          newBoard.columns[key] = { ...newBoard.columns[key], taskIds: [] };
-        });
+        for (const task of tasksFromDb) {
+          const mappedStatus = (task.status || 'a fazer').toLowerCase();
+          if (!newBoard.tasks[task.id]) {
+            const etiquetas: Tag[] = Array.isArray(task.etiqueta) ? task.etiqueta : [];
+            const users: { id: string; nome: string }[] = Array.isArray(task.user)
+              ? task.user
+              : [];
 
-        for (const task of tasksFromDb) {
-          const mappedStatus = statusMap[task.status] || task.status;
-          if (!newBoard.tasks[task.id]) { 
-            // CORREÇÃO (Linha 445): Mapear backend (inglês/misto) para frontend (português)
-            newBoard.tasks[task.id] = {
-              id: String(task.id),
-              titulo: task.titulo || 'Sem Título', // 'title' -> 'titulo'
-              description: task.description || '', // 'content' -> 'description'
-              data: task.data, // 'dueDate' -> 'data'
-              user: task.user ? { id: task.user.id, nome: task.user.nome } : undefined, // 'assignee' -> 'user'
-              coment: (task.comment || []) as FrontendComment[], // 'comments' -> 'coment'
-              etiquetaId: task.etiqueta ? task.etiqueta.id : null, // 'tagIds' -> 'etiquetaId'
-              status: mappedStatus,
-            };
+            newBoard.tasks[task.id] = {
+              id: String(task.id),
+              titulo: task.titulo || 'Sem Título',
+              description: task.description || '',
+              data: task.data,
+              coment: (task.comment || []) as FrontendComment[],
+              status: mappedStatus,
+              users,
+              userIds: users.map((u) => u.id),
+              etiquetas,
+              etiquetaIds: etiquetas.map((t) => t.id),
+            };
 
-            if (task.etiqueta && !newBoard.tags[task.etiqueta.id]) {
-              newBoard.tags[task.etiqueta.id] = task.etiqueta;
-            }
+            if (Array.isArray(task.etiqueta)) {
+              task.etiqueta.forEach((tag) => {
+                if (tag && !newBoard.tags[tag.id]) {
+                  newBoard.tags[tag.id] = tag;
+                }
+              });
+            }
 
-            if (newBoard.columns[mappedStatus]) {
-              newBoard.columns[mappedStatus].taskIds.push(String(task.id));
-            } else {
-              console.warn(`Tarefa ${task.id} tem um status inválido: ${task.status} (mapeado para ${mappedStatus})`);
-            }
-          }
-        }
-        setBoardData(newBoard);
-      } catch (err) {
-        console.error('Erro ao buscar tarefas do backend:', err);
-        setError('Não foi possível carregar as tarefas.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+            if (newBoard.columns[mappedStatus]) {
+              newBoard.columns[mappedStatus].taskIds.push(String(task.id));
+            } else {
+              newBoard.columns['a fazer'].taskIds.push(String(task.id));
+              console.warn(
+                `Tarefa ${task.id} tem um status inválido: ${task.status}. Movida para 'a fazer'.`,
+              );
+            }
+          }
+        }
 
-    fetchTasks();
-  }, []); 
+        setBoardData(newBoard);
+      } catch (err) {
+        console.error('Erro ao buscar tarefas do backend:', err);
+        setError('Não foi possível carregar as tarefas.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // --- Handlers DND (Sem alterações) ---
-  const sensors = useSensors(
-    useSensor(MouseSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 100, tolerance: 5 },
-    })
-  );
+    fetchTasks();
+  }, []);
 
-  const findContainer = (id: string) => {
-    if (!boardData) return null;
-    if (id in boardData.columns) {
-      return id;
-    }
-    return boardData.columnOrder.find(colId =>
-      boardData.columns[colId].taskIds.includes(id)
-    );
-  };
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 100, tolerance: 5 },
+    }),
+  );
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    if (boardData) {
-      const task = boardData.tasks[active.id];
-      if (task) {
-        setActiveTask(task);
-      }
-    }
-  };
+  const findContainer = (id: string) => {
+    if (!boardData) return null;
+    if (id in boardData.columns) {
+      return id;
+    }
+    return boardData.columnOrder.find((colId) =>
+      boardData.columns[colId].taskIds.includes(id),
+    );
+  };
 
-  const handleOnDragEnd = async (event: DragEndEvent) => {
-    setActiveTask(null);
-    const { active, over } = event;
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    if (boardData) {
+      const task = boardData.tasks[active.id as string];
+      if (task) {
+        setActiveTask(task);
+      }
+    }
+    document.body.classList.add('dragging');
+  };
 
-    if (!over) return;
-    if (!boardData) return;
+  const handleDropOnBackend = useCallback(
+    async (taskToMove: Task, targetColumnId: string, previousBoard: TaskBoard) => {
+      const taskId = taskToMove.id;
 
-    const taskId = String(active.id);
-    const overId = String(over.id);
+      try {
+        const targetColumn = previousBoard.columns[targetColumnId];
+        const newStatus = targetColumn?.title?.toLowerCase();
+        if (!newStatus) {
+          throw new Error('Coluna de destino ou título não encontrado.');
+        }
 
-    const startColumnId = findContainer(taskId);
-    let endColumnId = findContainer(overId);
+        const updatedTaskFromApi = await axios.patch(`${API_TASKS_URL}/${taskId}`, {
+          status: newStatus,
+          userId: taskToMove.userIds || [],
+          etiquetaId: taskToMove.etiquetaIds || [],
+        });
 
-    if (!startColumnId || !endColumnId) return;
+        const taskFromPatch = updatedTaskFromApi.data;
+        const etiquetas: Tag[] = Array.isArray(taskFromPatch.etiquetas)
+          ? taskFromPatch.etiquetas
+          : Array.isArray(taskFromPatch.etiqueta)
+          ? taskFromPatch.etiqueta
+          : [];
+        const users: any[] = Array.isArray(taskFromPatch.users)
+          ? taskFromPatch.users
+          : Array.isArray(taskFromPatch.user)
+          ? taskFromPatch.user
+          : [];
 
-    const startColumn = boardData.columns[startColumnId];
-    const endColumn = boardData.columns[endColumnId];
+        setBoardData((prev) => {
+          if (!prev) return prev;
+          const currentComments = previousBoard.tasks[taskId]?.coment || [];
+          const finalDroppedTask: Task = {
+            ...taskFromPatch,
+            users,
+            userIds: users.map((u) => u.id),
+            etiquetas,
+            etiquetaIds: etiquetas.map((t) => t.id),
+            coment: currentComments,
+          };
 
-    const sourceIndex = startColumn.taskIds.indexOf(taskId);
-    const destinationIndex = (overId in boardData.columns)
-      ? endColumn.taskIds.length
-      : endColumn.taskIds.indexOf(overId);
-    
-    if (sourceIndex === -1 || (destinationIndex === -1 && !(overId in boardData.columns))) return;
+          return {
+            ...prev,
+            tasks: { ...prev.tasks, [taskId]: finalDroppedTask },
+          };
+        });
+      } catch (err: any) {
+        const errorMsg = err?.response?.data?.message
+          ? Array.isArray(err.response.data.message)
+            ? err.response.data.message.join(', ')
+            : err.response.data.message
+          : err?.message;
+        setError(`Falha ao mover: ${errorMsg}. Revertendo.`);
+        setBoardData(previousBoard);
+      }
+    },
+    [],
+  );
 
-    let newBoard = JSON.parse(JSON.stringify(boardData)); 
-    let newStatus = endColumnId;
+  const handleOnDragEnd = async (event: DragEndEvent) => {
+    setActiveTask(null);
+    document.body.classList.remove('dragging');
 
-    if (startColumnId === endColumnId) {
-      newBoard.columns[startColumnId].taskIds = arrayMove(
-        newBoard.columns[startColumnId].taskIds,
-        sourceIndex,
-        destinationIndex
-      );
-    } else {
-      const [movedTask] = newBoard.columns[startColumnId].taskIds.splice(sourceIndex, 1);
-      
-      const correctDestinationIndex = (overId in boardData.columns)
-        ? newBoard.columns[endColumnId].taskIds.length
-        : newBoard.columns[endColumnId].taskIds.indexOf(overId);
+    const { active, over } = event;
 
-      newBoard.columns[endColumnId].taskIds.splice(correctDestinationIndex, 0, movedTask);
-      
-      newBoard.tasks[taskId].status = endColumnId;
-    }
+    if (!over || !boardData) return;
 
-    setBoardData(newBoard);
+    const taskId = String(active.id);
+    const overId = String(over.id);
+    const taskToMove = boardData.tasks[taskId];
+    if (!taskToMove) return;
 
-    try {
-      // Correção do Backend (Sem alterações)
-      await axios.patch(`${API_URL}/tasks/${taskId}`, {
-        status: newStatus, 
-      });
+    const startColumnId = findContainer(taskId);
+    let targetColumnId = findContainer(overId);
 
-      console.log(`Task ${taskId} movida para ${newStatus} no backend.`);
-    } catch (err: any) {
-      console.error('Erro ao atualizar a task:', (err as any).response?.data || (err as any).message);
-      setBoardData(boardData); // Reverte
-    }
-  };
+    if (!startColumnId || !targetColumnId) return;
 
-  // --- Handlers do Modal (NOVOS) ---
+    if (boardData.tasks[targetColumnId]) {
+      targetColumnId = findContainer(targetColumnId) as string;
+    }
+    if (!targetColumnId) return;
 
-  // Abre o modal com a tarefa selecionada
-  const handleOpenTaskDetails = (task: Task) => {
-    // Garante que estamos abrindo a versão mais atual da task
-    setSelectedTask(boardData!.tasks[task.id] || task);
-  };
+    if (startColumnId !== targetColumnId) {
+      const previousBoard = boardData;
 
-  // Fecha o modal
-  const handleCloseTaskDetails = () => {
-    setSelectedTask(null);
-  };
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        const sourceCol = prev.columns[startColumnId];
+        const targetCol = prev.columns[targetColumnId];
+        if (!sourceCol || !targetCol) return prev;
 
-  // Atualiza a contagem de comentários no board
-  const handleCommentAdded = (taskId: string, newComment: FrontendComment) => {
-    setBoardData(prev => {
-      if (!prev) return prev;
-      const newTasks = { ...prev.tasks };
-      const task = newTasks[taskId];
-      if (task) {
-        // CORREÇÃO (Linha 592): 'comments' -> 'coment'
-        newTasks[taskId] = {
-          ...task,
-          coment: [...(task.coment || []), newComment] 
-        };
-      }
-      return { ...prev, tasks: newTasks };
-    });
-  };
+        const sourceTaskIds = sourceCol.taskIds.filter((id) => id !== taskId);
 
-  // --- Renderização ---
-  if (isLoading) {
-    return <div className="text-gray-500 p-4">A carregar o quadro de tarefas...</div>;
-  }
+        let targetIndex = targetCol.taskIds.length;
 
-  if (error) {
-    return <div className="text-red-500 p-4">{error}</div>;
-  }
+        if (boardData.tasks[overId]) {
+          const overTaskIndex = targetCol.taskIds.indexOf(overId);
+          if (overTaskIndex !== -1) {
+            targetIndex = overTaskIndex;
+          }
+        }
 
-  if (!boardData) {
-    return <div className="text-gray-500 p-4">Quadro não inicializado.</div>;
-  }
+        const targetTaskIds = [...targetCol.taskIds];
+        targetTaskIds.splice(targetIndex, 0, taskId);
 
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleOnDragEnd}
-    >
-      <div className="container mx-auto p-4 md:p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Quadro de Tarefas</h1>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-          
-          {/* Renderização das colunas (ATUALIZADA) */}
-          {boardData.columnOrder.map(columnId => {
-            const column = boardData.columns[columnId];
-            if (!column) return null; 
+        return {
+          ...prev,
+          columns: {
+            ...prev.columns,
+            [startColumnId]: { ...sourceCol, taskIds: sourceTaskIds },
+            [targetColumnId]: { ...targetCol, taskIds: targetTaskIds },
+          },
+        };
+      });
 
-            const tasks = column.taskIds.map(taskId => boardData.tasks[taskId]).filter(Boolean);
+      handleDropOnBackend(taskToMove, targetColumnId, previousBoard);
+    } else {
+      const targetIndex = boardData.columns[startColumnId].taskIds.indexOf(overId);
+      const sourceIndex = boardData.columns[startColumnId].taskIds.indexOf(taskId);
 
-            return (
-              <TaskColumn
-                key={column.id}
-                column={column}
-                tasks={tasks}
-                tags={boardData.tags}
-                onTaskClick={handleOpenTaskDetails} // ✅ Passa o handler
-              />
-            );
-          })}
-        </div>
-      </div>
-      
-      <DragOverlay>
-        {/* CORREÇÃO (Linha 647): Passar props opcionais como null ou undefined */}
-        {activeTask ? (
-          <TaskCard 
-            task={activeTask} 
-            tags={boardData.tags} 
-            innerRef={undefined} 
-            style={{}} 
-            onClick={undefined} 
-          />
-        ) : null}
-      </DragOverlay>
-      
-      {/* ✅ Renderização do Modal de Detalhes */}
-      {boardData && (
-        <TaskDetailModal
-          isOpen={!!selectedTask}
-          onClose={handleCloseTaskDetails}
-          task={selectedTask}
-          tags={boardData.tags}
-          currentUser={currentUser}
-          onCommentAdded={handleCommentAdded}
-        />
-      )}
-    </DndContext>
-  );
+      if (
+        targetIndex !== -1 &&
+        sourceIndex !== -1 &&
+        targetIndex !== sourceIndex
+      ) {
+        setBoardData((prev) => {
+          if (!prev) return prev;
+          const newTaskIds = arrayMove(
+            prev.columns[startColumnId].taskIds,
+            sourceIndex,
+            targetIndex,
+          );
+          return {
+            ...prev,
+            columns: {
+              ...prev.columns,
+              [startColumnId]: {
+                ...prev.columns[startColumnId],
+                taskIds: newTaskIds,
+              },
+            },
+          };
+        });
+      }
+    }
+  };
+
+  const handleOpenTaskDetails = (task: Task) => {
+    if (!boardData) return;
+    setSelectedTask(boardData.tasks[task.id] || task);
+  };
+
+  const handleCloseTaskDetails = () => {
+    setSelectedTask(null);
+  };
+
+  const handleCommentAdded = (taskId: string, newComment: FrontendComment) => {
+    setBoardData((prev) => {
+      if (!prev) return prev;
+      const newTasks = { ...prev.tasks };
+      const task = newTasks[taskId];
+      if (task) {
+        newTasks[taskId] = {
+          ...task,
+          coment: [...(task.coment || []), newComment],
+        };
+      }
+      return { ...prev, tasks: newTasks };
+    });
+  };
+
+  if (isLoading) {
+    return <div className="text-gray-500 p-4">A carregar o quadro de tarefas...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500 p-4">{error}</div>;
+  }
+
+  if (!boardData) {
+    return <div className="text-gray-500 p-4">Quadro não inicializado.</div>;
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleOnDragEnd}
+    >
+      <div className="container mx-auto p-4 md:p-6">
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Quadro de Tarefas</h1>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+          {boardData.columnOrder.map((columnId) => {
+            const column = boardData.columns[columnId];
+            if (!column) return null;
+
+            const tasks = column.taskIds
+              .map((taskId) => boardData.tasks[taskId])
+              .filter(Boolean) as Task[];
+
+            return (
+              <TaskColumn
+                key={column.id}
+                column={column}
+                tasks={tasks}
+                onTaskClick={handleOpenTaskDetails}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <DragOverlay>
+        {activeTask ? (
+          <TaskCard
+            task={activeTask}
+            style={{
+              borderTop: `4px solid ${
+                activeTask.etiquetas?.[0]?.color || 'transparent'
+              }`,
+            }}
+          />
+        ) : null}
+      </DragOverlay>
+
+      <TaskDetailModal
+        isOpen={!!selectedTask}
+        onClose={handleCloseTaskDetails}
+        task={selectedTask}
+        currentUser={currentUser}
+        onCommentAdded={handleCommentAdded}
+      />
+    </DndContext>
+  );
 };
 
 export default OperationalTasksPage;

@@ -71,7 +71,7 @@ Ao utilizar nosso aplicativo, você reconhece ter lido e compreendido esta polí
         >
           {' '}permissões da sua Conta Google
         </a>. Você também pode usar o botão "Desconectar" em nosso aplicativo.{' '}
-      </p>
+      </p> 
 
       <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-2">6. Contato</h2>
       <p className="text-gray-700">
