@@ -1,60 +1,104 @@
-// Define a Etiqueta (Tag)
+// ==========================================================
+//                  ETIQUETAS (TAGS)
+// ==========================================================
+
 export interface Etiqueta {
-  id: string;
-  nome: string; 
-  color: string;
-  createdAt?: string;
-  updatedAt?: string;
+  id: string;
+  nome: string;
+  color: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type Tag = Etiqueta;
 
-// Define um comentário
+// ==========================================================
+//                      COMENTÁRIOS
+// ==========================================================
+
 export interface Comment {
-  id: string;
-  author: string;
-  date: string;
-  text: string;
+  id: string;
+  author: string;
+  date: string;
+  text: string;
 }
 
-// Define a estrutura de uma única tarefa (card)
-// --- ATUALIZADO PARA MÚLTIPLOS USUÁRIOS E ETIQUETAS ---
+// ==========================================================
+//                      TASK (CARD)
+// ==========================================================
+//
+// 100% atualizado com:
+//  - prazo
+//  - múltiplos usuários
+//  - múltiplas etiquetas
+//  - comentários
+//  - compatibilidade com backend NestJS
+//  - compatibilidade com restos do frontend
+//
+
 export interface Task {
-  id: string;
-  titulo: string; 
-  status: string; 
+  id: string;
+  titulo: string;
+  status: string;
 
-  description?: string | null;
-  data?: string | null;        
-  
-  // Propriedades NOVAS (Plural)
-  users: { id: string; nome: string; }[]; // Array de objetos de usuário
-  userIds: string[]; // Array de IDs de usuário
+  description?: string | null;
+  data?: string | null;      // data de início
+  prazo?: string | null;     // PRAZO (NOVO)
 
-  etiquetas: Tag[]; // Array de objetos de etiqueta
-  etiquetaIds: string[]; // Array de IDs de etiqueta
-  
-  coment: Comment[]; 
+  // ================================
+  //   USUÁRIOS — MULTI-USERS
+  // ================================
+  users: {
+    id: string;
+    nome: string;
+  }[];
 
-  // Propriedades antigas (opcionais) para compatibilidade temporária
-  // Isso evita que outras partes do app quebrem se ainda as usarem
+  userIds: string[];
+
+  // ================================
+  //   ETIQUETAS — MULTI-TAGS
+  // ================================
+  etiquetas: Tag[];
+  etiquetaIds: string[];
+
+  // ================================
+  //           COMENTÁRIOS
+  // ================================
+  coment: Comment[];
+
+  // ==========================================================
+  //     CAMPOS DE COMPATIBILIDADE TEMPORÁRIA
+  // ==========================================================
+  //
+  // Servem para evitar quebra onde o código antigo ainda
+  // usa user/UserId ou etiqueta/etiquetaId no singular
+  //
+
   user?: any;
   userId?: any;
   etiquetaId?: any;
+  projectId?: string | null; // 👈 adiciona isso
+  projectName?: string
 }
-// --- FIM DA ATUALIZAÇÃO ---
 
-// Define a estrutura de uma coluna do quadro
+// ==========================================================
+//                 ESTRUTURA DE COLUNA
+// ==========================================================
+
 export interface Column {
-  id: string;
-  title: string; 
-  taskIds: string[];
+  id: string;
+  title: string;
+  taskIds: string[]; // IDs das tasks nesta coluna
 }
 
-// Define a estrutura completa do quadro de tarefas
+// ==========================================================
+//                 ESTRUTURA DO BOARD
+// ==========================================================
+
 export interface TaskBoard {
-  tasks: { [key: string]: Task };
-  columns: { [key: string]: Column };
-  columnOrder: string[];
-  tags: { [key: string]: Tag };
+  newBoard?: any;
+  tasks: { [key: string]: Task };
+  columns: { [key: string]: Column };
+  columnOrder: string[];
+  tags: { [key: string]: Tag };
 }

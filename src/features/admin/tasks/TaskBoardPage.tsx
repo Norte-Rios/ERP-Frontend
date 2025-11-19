@@ -1,6 +1,15 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+// src/features/admin/tasks/TaskBoardPage.tsx
+
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { useAuth } from "../../../auth/AuthContext.tsx";
-import { TaskBoard, Task, Comment as FrontendComment, Tag } from './types';
+import { Task, Tag, Comment as FrontendComment } from "./types";
+import { useLocation } from "react-router-dom";
+
 import {
   PlusCircle,
   User,
@@ -14,10 +23,9 @@ import {
   Loader2,
   Check,
   Search,
-  ChevronDown
-} from 'lucide-react';
+  ChevronDown,
+} from "lucide-react";
 
-// dnd-kit
 import {
   DndContext,
   closestCorners,
@@ -25,84 +33,51 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  DragOverlay,
   DragStartEvent,
   DragEndEvent,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { useDroppable } from '@dnd-kit/core';
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-import axios from 'axios';
-
-// --- Injeção de estilos antigos (mantidos, mas agora usamos mais inline styles) ---
-const styles = `
-  .tag-3b82f6 { background-color: #3B82F6 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
-  .tag-10b981 { background-color: #10B981 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
-  .tag-ef4444 { background-color: #EF4444 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
-  .tag-f59e0b { background-color: #F59E0B !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
-  .tag-8b5cf6 { background-color: #8B5CF6 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
-  .tag-ec4899 { background-color: #EC4899 !important; color: white !important; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
-`;
-
-if (typeof document !== 'undefined') {
-  const styleId = 'taskboard-tag-styles';
-  let styleSheet = document.getElementById(styleId);
-  if (!styleSheet) {
-    styleSheet = document.createElement('style');
-    styleSheet.id = styleId;
-    styleSheet.innerText = styles;
-    document.head.appendChild(styleSheet);
-  }
-}
-
-// --- Constantes de API ---
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL;
 const API_TASKS_URL = `${API_BASE_URL}/tasks`;
 const API_ETIQUETAS_URL = `${API_BASE_URL}/etiquetas`;
 const API_USERS_URL = `${API_BASE_URL}/users`;
 const API_COMMENT_URL = `${API_BASE_URL}/comments`;
 
-type NewTagData = { nome: string; color: string; };
-
-export interface BackendComment {
+interface BackendComment {
   id: string;
   comment: string;
-  user: { id: string; nome: string; };
-  tasks?: { id: string; };
+  user: { id: string; nome: string };
+  tasks?: { id: string };
   createdAt: string;
 }
 
-// --- Helper para transformar URLs em links clicáveis ---
+// Helper: linkificar texto
 const linkifyText = (text?: string): React.ReactNode => {
   if (!text) return null;
 
-  // Detecta http(s)://... ou www....
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
 
-  const elements: React.ReactNode[] = [];
-  let lastIndex = 0;
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
   let match: RegExpExecArray | null;
 
   while ((match = urlRegex.exec(text)) !== null) {
     const url = match[0];
-    const startIndex = match.index;
+    const index = match.index;
 
-    // Texto antes da URL
-    if (startIndex > lastIndex) {
-      elements.push(text.slice(lastIndex, startIndex));
-    }
+    if (index > last) nodes.push(text.slice(last, index));
 
-    const href = url.startsWith('http') ? url : `https://${url}`;
-
-    elements.push(
+    const href = url.startsWith("http") ? url : `https://${url}`;
+    nodes.push(
       <a
-        key={elements.length}
+        key={nodes.length}
         href={href}
         target="_blank"
         rel="noopener noreferrer"
@@ -112,286 +87,290 @@ const linkifyText = (text?: string): React.ReactNode => {
       </a>
     );
 
-    lastIndex = startIndex + url.length;
+    last = index + url.length;
   }
 
-  // Resto do texto
-  if (lastIndex < text.length) {
-    elements.push(text.slice(lastIndex));
-  }
+  if (last < text.length) nodes.push(text.slice(last));
 
-  return elements;
+  return nodes;
 };
 
-// --- Funções de API ---
+// ========================= API =========================
 
 const apiGetUsers = async (): Promise<any[]> => {
-  const response = await fetch(API_USERS_URL);
-  if (!response.ok) throw new Error(`Falha GET Users: ${response.status}`);
-  return response.json();
+  const res = await fetch(API_USERS_URL);
+  if (!res.ok) throw new Error(`GET /users ${res.status}`);
+  return res.json();
 };
 
 const apiGetTags = async (): Promise<Tag[]> => {
-  const response = await fetch(API_ETIQUETAS_URL);
-  if (!response.ok) throw new Error(`Falha GET Tags: ${response.status}`);
-  return response.json();
+  const res = await fetch(API_ETIQUETAS_URL);
+  if (!res.ok) throw new Error(`GET /etiquetas ${res.status}`);
+  return res.json();
 };
 
-const apiCreateTag = async (data: NewTagData): Promise<Tag> => {
-  const response = await fetch(API_ETIQUETAS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+const apiCreateTag = async (data: { nome: string; color: string }): Promise<Tag> => {
+  const res = await fetch(API_ETIQUETAS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error(`Falha POST Tag: ${response.status}`);
-  return response.json();
+  if (!res.ok) throw new Error(`POST /etiquetas ${res.status}`);
+  return res.json();
 };
 
 const apiDeleteTag = async (id: string): Promise<void> => {
-  const response = await fetch(`${API_ETIQUETAS_URL}/${id}`, { method: 'DELETE' });
-  if (!response.ok) throw new Error(`Falha DELETE Tag: ${response.status}`);
+  const res = await fetch(`${API_ETIQUETAS_URL}/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`DELETE /etiquetas ${res.status}`);
 };
 
-// Envia chaves no SINGULAR ('userId', 'etiquetaId') como arrays
-const apiCreateTask = async (taskData: any): Promise<Task> => {
-  const cleanTaskData: any = {
-    titulo: taskData.titulo,
-    description: taskData.description,
-    data: taskData.data,
-    status: "a fazer",
-    userId: taskData.userIds || [],
-  };
-
-  // Só envia 'etiquetaId' se tiver pelo menos uma
-  if (taskData.etiquetaIds && taskData.etiquetaIds.length > 0) {
-    cleanTaskData.etiquetaId = taskData.etiquetaIds;
-  }
-
-  const response = await fetch(API_TASKS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(cleanTaskData),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.json();
-    const errorMsg = errorBody.message
-      ? (Array.isArray(errorBody.message) ? errorBody.message.join(', ') : errorBody.message)
-      : 'Erro desconhecido';
-    console.error("Erro ao criar task:", errorBody);
-    throw new Error(`Falha POST Task: ${response.status} - ${errorMsg}`);
-  }
-  const newTask = await response.json();
-
-  const etiquetas: Tag[] = Array.isArray(newTask.etiquetas)
-    ? newTask.etiquetas
-    : (Array.isArray(newTask.etiqueta) ? newTask.etiqueta : []);
-  const users: any[] = Array.isArray(newTask.users)
-    ? newTask.users
-    : (Array.isArray(newTask.user) ? newTask.user : []);
-
-  return {
-    ...newTask,
-    etiquetas,
-    etiquetaIds: etiquetas.map(t => t.id),
-    users,
-    userIds: users.map(u => u.id),
-    coment: [],
-  };
-};
-
-// Mapeia GET tasks do backend para o tipo do frontend
-const apiGetTasks = async (): Promise<Task[]> => {
-  const response = await fetch(API_TASKS_URL);
-  if (!response.ok) throw new Error(`Falha GET Tasks: ${response.status}`);
-  const tasksFromApi: any[] = await response.json();
-
-  return tasksFromApi.map((task: any): Task => {
-    const etiquetas: Tag[] = Array.isArray(task.etiqueta) ? task.etiqueta : [];
-    const users: any[] = Array.isArray(task.user) ? task.user : [];
-
-    const etiquetaIds: string[] = etiquetas.map(t => t.id);
-    const userIds: string[] = users.map(u => u.id);
-
-    const frontendTask: Task = {
-      ...task,
-      etiquetas,
-      etiquetaIds,
-      users,
-      userIds,
-      coment: [],
-    };
-
-    delete (frontendTask as any).comments;
-    delete (frontendTask as any).comment;
-    delete (frontendTask as any).etiqueta;
-    delete (frontendTask as any).etiquetaId;
-    delete (frontendTask as any).user;
-    delete (frontendTask as any).userId;
-
-    return frontendTask;
-  });
-};
-
-// PATCH tasks com payload limpo (usado em edição e etc)
-const apiUpdateTask = async (id: string, taskData: any): Promise<Task> => {
-  const cleanTaskData: any = {};
-
-  if (taskData.titulo !== undefined) cleanTaskData.titulo = taskData.titulo;
-  if (taskData.description !== undefined) cleanTaskData.description = taskData.description;
-  if (taskData.data !== undefined) cleanTaskData.data = taskData.data;
-  if (taskData.status !== undefined) cleanTaskData.status = taskData.status;
-
-  if (taskData.userIds !== undefined) {
-    cleanTaskData.userId = taskData.userIds;
-  }
-
-  if (taskData.etiquetaIds !== undefined) {
-    if (taskData.etiquetaIds.length > 0) {
-      cleanTaskData.etiquetaId = taskData.etiquetaIds;
-    } else {
-      cleanTaskData.etiquetaId = [];
-    }
-  }
-
-  const response = await fetch(`${API_TASKS_URL}/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(cleanTaskData),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.json();
-    const errorMsg = errorBody.message
-      ? (Array.isArray(errorBody.message) ? errorBody.message.join(', ') : errorBody.message)
-      : 'Erro desconhecido';
-    console.error(`Erro ao atualizar task ${id}:`, errorBody);
-    throw new Error(`Falha PATCH Task: ${response.status} - ${errorMsg}`);
-  }
-  const updatedTask = await response.json();
-
-  const etiquetas: Tag[] = Array.isArray(updatedTask.etiquetas)
-    ? updatedTask.etiquetas
-    : (Array.isArray(updatedTask.etiqueta) ? updatedTask.etiqueta : []);
-  const users: any[] = Array.isArray(updatedTask.users)
-    ? updatedTask.users
-    : (Array.isArray(updatedTask.user) ? updatedTask.user : []);
-
-  return {
-    ...updatedTask,
-    etiquetas,
-    etiquetaIds: etiquetas.map(t => t.id),
-    users,
-    userIds: users.map(u => u.id),
-    coment: [],
-  };
+const apiGetTasksRaw = async (): Promise<any[]> => {
+  const res = await fetch(API_TASKS_URL);
+  if (!res.ok) throw new Error(`GET /tasks ${res.status}`);
+  return res.json();
 };
 
 const apiDeleteTask = async (id: string): Promise<void> => {
-  const response = await fetch(`${API_TASKS_URL}/${id}`, { method: 'DELETE' });
-  if (!response.ok) throw new Error(`Falha DELETE Task: ${response.status}`);
+  const res = await fetch(`${API_TASKS_URL}/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`DELETE /tasks ${res.status}`);
 };
 
 const apiGetCommentsByTask = async (taskId: string): Promise<BackendComment[]> => {
-  const response = await fetch(`${API_COMMENT_URL}/task/${taskId}`);
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`Erro ao buscar comentários para task ${taskId}:`, errorBody);
-    throw new Error(`Falha GET Comments: ${response.status} - ${errorBody}`);
-  }
-  const comments = await response.json();
-  return Array.isArray(comments) ? comments : [];
+  const res = await fetch(`${API_COMMENT_URL}/task/${taskId}`);
+  if (!res.ok) throw new Error(`GET /comments/task/${taskId} ${res.status}`);
+  const list = await res.json();
+  return Array.isArray(list) ? list : [];
 };
 
-const apiAddComment = async (taskId: string, commentText: string, userId: string): Promise<BackendComment> => {
-  const response = await fetch(`${API_COMMENT_URL}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+const apiAddComment = async (
+  taskId: string,
+  commentText: string,
+  userId: string
+): Promise<BackendComment> => {
+  const res = await fetch(`${API_COMMENT_URL}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ comment: commentText, userId, taskId }),
   });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error("Erro ao adicionar comentário:", errorBody);
-    throw new Error(`Falha ADD Comment: ${response.status} - ${errorBody}`);
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Erro ao adicionar comentário");
   }
-  return response.json();
+  return res.json();
 };
 
-const transformTagsArrayToObject = (tags: Tag[]): Record<string, Tag> => {
-  return tags.reduce((acc, tag) => { acc[tag.id] = tag; return acc; }, {} as Record<string, Tag>);
+// normaliza a task do backend pro tipo Task do front
+const normalizeTask = (t: any): Task => {
+  const usersArr = Array.isArray(t.user)
+    ? t.user
+    : Array.isArray(t.users)
+    ? t.users
+    : [];
+  const etiquetasArr = Array.isArray(t.etiqueta)
+    ? t.etiqueta
+    : Array.isArray(t.etiquetas)
+    ? t.etiquetas
+    : [];
+
+  return {
+    id: t.id,
+    titulo: t.titulo,
+    status: t.status,
+
+    description: t.description ?? null,
+    data: t.data ?? null,
+    prazo: t.prazo ?? null,
+
+    users: usersArr,
+    userIds: usersArr.map((u: any) => u.id),
+
+    etiquetas: etiquetasArr,
+    etiquetaIds: etiquetasArr.map((e: any) => e.id),
+
+    coment: [],
+
+    user: t.user,
+    userId: t.userId,
+    etiquetaId: t.etiquetaId,
+
+    // NOVO: informações de projeto
+    projectId: t.project?.id ?? null,
+    projectName: t.project?.nome ?? null,
+  };
 };
 
-// --- Componente TaskTags (Exibe múltiplas etiquetas com cor marcada) ---
-const TaskTags = ({ etiquetas }: { etiquetas: Tag[] | undefined }) => {
+const apiCreateTask = async (payload: {
+  titulo: string;
+  description?: string | null;
+  data?: string | null;
+  prazo?: string | null;
+  status: string;
+  userIds: string[];
+  etiquetaIds: string[];
+  projectId?: string | null;
+}): Promise<Task> => {
+  const body: any = {
+    titulo: payload.titulo,
+    description: payload.description ?? null,
+    data: payload.data ?? null,
+    prazo: payload.prazo ?? null,
+    status: payload.status,
+    userId: payload.userIds ?? [],
+  };
+
+  if (payload.etiquetaIds && payload.etiquetaIds.length > 0) {
+    body.etiquetaId = payload.etiquetaIds;
+  }
+
+  // NOVO: envia projectId quando tiver
+  if (payload.projectId) {
+    body.projectId = payload.projectId;
+  }
+
+  const res = await fetch(API_TASKS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    const msg = Array.isArray(errBody.message)
+      ? errBody.message.join(", ")
+      : errBody.message || "Erro ao criar tarefa";
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  return normalizeTask(data);
+};
+
+const apiUpdateTask = async (
+  id: string,
+  payload: Partial<Task>
+): Promise<Task> => {
+  const body: any = {};
+
+  if (payload.titulo !== undefined) body.titulo = payload.titulo;
+  if (payload.description !== undefined) body.description = payload.description;
+  if (payload.data !== undefined) body.data = payload.data;
+  if (payload.prazo !== undefined) body.prazo = payload.prazo;
+  if (payload.status !== undefined) body.status = payload.status;
+
+  if (payload.userIds !== undefined) body.userId = payload.userIds;
+  if (payload.etiquetaIds !== undefined) body.etiquetaId = payload.etiquetaIds;
+
+  // Se em algum momento quiser mudar de projeto no futuro:
+  // if (payload.projectId !== undefined) body.projectId = payload.projectId;
+
+  const res = await fetch(`${API_TASKS_URL}/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    const msg = Array.isArray(errBody.message)
+      ? errBody.message.join(", ")
+      : errBody.message || "Erro ao atualizar tarefa";
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  return normalizeTask(data);
+};
+
+const transformTagsArrayToObject = (
+  tags: Tag[]
+): Record<string, Tag> => {
+  return tags.reduce((acc, tag) => {
+    acc[tag.id] = tag;
+    return acc;
+  }, {} as Record<string, Tag>);
+};
+
+// ======================== UI COMPONENTES ========================
+
+const TaskTags = ({ etiquetas }: { etiquetas?: Tag[] }) => {
   if (!etiquetas || etiquetas.length === 0) return null;
-
   return (
     <div className="flex flex-wrap gap-1 mt-1 mb-1">
-      {etiquetas.map((tag) => {
-        if (!tag) return null;
-        const bg = tag.color || '#6B7280';
-
-        return (
-          <span
-            key={tag.id}
-            className="px-2 py-0.5 rounded-full text-[0.70rem] font-semibold"
-            style={{ backgroundColor: bg, color: 'white' }}
-          >
-            {tag.nome}
-          </span>
-        );
-      })}
+      {etiquetas.map((tag) => (
+        <span
+          key={tag.id}
+          className="px-2 py-0.5 rounded-full text-[0.70rem] font-semibold"
+          style={{
+            backgroundColor: tag.color || "#6B7280",
+            color: "white",
+          }}
+        >
+          {tag.nome}
+        </span>
+      ))}
     </div>
   );
 };
 
-// --- Componente TaskCard (para dnd-kit DragOverlay) ---
 interface TaskCardProps {
   task: Task;
-  onClick?: (task: Task) => void;
+  onClick?: (t: Task) => void;
   style?: React.CSSProperties;
   innerRef?: React.Ref<HTMLDivElement>;
-  [key: string]: any;
 }
 
 const TaskCard = ({ task, onClick, style, innerRef, ...rest }: TaskCardProps) => (
   <div
     ref={innerRef}
-    onClick={() => onClick && onClick(task)}
     style={style}
-    className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all duration-150 ease-in-out relative overflow-hidden"
+    onClick={() => onClick?.(task)}
+    className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all duration-150 ease-in-out"
     {...rest}
   >
     <h4 className="font-semibold text-sm text-gray-800 mb-1">
       {task.titulo || "Tarefa sem título"}
     </h4>
+
     <TaskTags etiquetas={task.etiquetas} />
-    <div className="flex justify-between items-center text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">
-      <div className="flex items-center gap-2">
-        {task.data && (
-          <div className="flex items-center gap-1">
-            <Calendar size={12} />
-            <span>
-              {task.data
-                ? new Date(task.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
-                : ''}
-            </span>
-          </div>
-        )}
-      </div>
+
+    <div className="mt-2 text-xs text-gray-700 space-y-1">
+      {task.data && (
+        <div className="flex items-center gap-1">
+          <Calendar size={12} />
+          <span>
+            Início:{" "}
+            {new Date(task.data).toLocaleDateString("pt-BR", {
+              timeZone: "UTC",
+            })}
+          </span>
+        </div>
+      )}
+
+      {task.prazo && (
+        <div className="flex items-center gap-1 text-red-600 font-semibold">
+          <Calendar size={12} />
+          <span>
+            Prazo:{" "}
+            {new Date(task.prazo).toLocaleDateString("pt-BR", {
+              timeZone: "UTC",
+            })}
+          </span>
+        </div>
+      )}
+    </div>
+
+    <div className="flex justify-end mt-2">
       {task.users && task.users.length > 0 ? (
         <div
           className="flex -space-x-2 overflow-hidden"
-          title={task.users.map(u => u.nome).join(', ')}
+          title={task.users.map((u) => u.nome).join(", ")}
         >
-          {task.users.slice(0, 3).map(user => (
+          {task.users.slice(0, 3).map((u) => (
             <div
-              key={user.id}
+              key={u.id}
               className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700"
-              title={user.nome}
             >
-              {user.nome ? user.nome.charAt(0).toUpperCase() : '?'}
+              {u.nome ? u.nome.charAt(0).toUpperCase() : "?"}
             </div>
           ))}
           {task.users.length > 3 && (
@@ -401,27 +380,25 @@ const TaskCard = ({ task, onClick, style, innerRef, ...rest }: TaskCardProps) =>
           )}
         </div>
       ) : (
-        <span className="text-gray-400 italic">N/A</span>
+        <span className="text-gray-400 italic text-xs">Sem responsável</span>
       )}
     </div>
   </div>
 );
 
-// --- Avatar de Usuário ---
 const UserAvatar = ({ user }: { user: { nome: string } }) => (
   <div
     className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700"
     title={user.nome}
   >
-    {user.nome ? user.nome.charAt(0).toUpperCase() : '?'}
+    {user.nome ? user.nome.charAt(0).toUpperCase() : "?"}
   </div>
 );
 
-// --- Seletor múltiplo de usuários ---
 interface UserMultiSelectDropdownProps {
   allUsers: { id: string; nome: string }[];
   selectedUserIds: string[];
-  onChange: (selectedIds: string[]) => void;
+  onChange: (ids: string[]) => void;
   disabled?: boolean;
 }
 
@@ -432,65 +409,60 @@ const UserMultiSelectDropdown: React.FC<UserMultiSelectDropdownProps> = ({
   disabled,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const filteredUsers = useMemo(
-    () => allUsers.filter(user =>
-      user.nome.toLowerCase().includes(searchTerm.toLowerCase())
-    ),
-    [allUsers, searchTerm]
+  const filtered = useMemo(
+    () =>
+      allUsers.filter((u) =>
+        u.nome.toLowerCase().includes(search.toLowerCase())
+      ),
+    [allUsers, search]
   );
 
-  const selectedUsersMap = useMemo(
-    () => new Set(selectedUserIds),
-    [selectedUserIds]
-  );
+  const selectedSet = new Set(selectedUserIds);
+  const selectedUsers = allUsers.filter((u) => selectedSet.has(u.id));
 
-  const selectedUsers = allUsers.filter(u => selectedUsersMap.has(u.id));
-
-  const handleToggleUser = (userId: string) => {
-    const newSelected = new Set(selectedUserIds);
-    if (newSelected.has(userId)) {
-      newSelected.delete(userId);
-    } else {
-      newSelected.add(userId);
-    }
-    onChange(Array.from(newSelected));
+  const toggle = (id: string) => {
+    const newSet = new Set(selectedUserIds);
+    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    onChange(Array.from(newSet));
   };
 
   return (
-    <div className="relative w-full" ref={dropdownRef}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+    <div className="relative w-full" ref={ref}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
         Responsáveis
       </label>
       <button
         type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
+        onClick={() => !disabled && setIsOpen((o) => !o)}
         className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-left flex items-center justify-between disabled:bg-gray-100"
       >
         <span className="flex-1">
           {selectedUsers.length === 0 ? (
-            <span className="text-gray-500">Selecionar usuários...</span>
+            <span className="text-gray-500 text-sm">
+              Selecionar usuários...
+            </span>
           ) : (
             <div className="flex -space-x-2 overflow-hidden">
-              {selectedUsers.slice(0, 4).map(user => (
-                <UserAvatar key={user.id} user={user} />
+              {selectedUsers.slice(0, 3).map((u) => (
+                <UserAvatar key={u.id} user={u} />
               ))}
-              {selectedUsers.length > 4 && (
-                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-gray-400 flex items-center justify-center text-xs font-semibold text-white">
-                  +{selectedUsers.length - 4}
+              {selectedUsers.length > 3 && (
+                <div className="inline-block h-6 w-6 rounded-full bg-gray-400 ring-2 ring-white flex items-center justify-center text-xs text-white">
+                  +{selectedUsers.length - 3}
                 </div>
               )}
             </div>
@@ -498,54 +470,56 @@ const UserMultiSelectDropdown: React.FC<UserMultiSelectDropdownProps> = ({
         </span>
         <ChevronDown
           size={16}
-          className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`text-gray-500 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
+        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-64 overflow-hidden flex flex-col">
           <div className="p-2 border-b">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Buscar usuário..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="w-full px-3 py-2 pl-8 border border-gray-300 rounded-md text-sm"
               />
               <Search
                 size={14}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"
               />
             </div>
           </div>
+
           <ul className="flex-1 overflow-y-auto p-1">
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map(user => {
-                const isSelected = selectedUsersMap.has(user.id);
-                return (
-                  <li
-                    key={user.id}
-                    onClick={() => handleToggleUser(user.id)}
-                    className="px-3 py-2 text-sm rounded-md flex items-center gap-3 cursor-pointer hover:bg-gray-100"
-                  >
-                    <div
-                      className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
-                        isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-400'
-                      }`}
-                    >
-                      {isSelected && <Check size={12} className="text-white" />}
-                    </div>
-                    <User size={16} />
-                    <span>{user.nome}</span>
-                  </li>
-                );
-              })
-            ) : (
+            {filtered.length === 0 && (
               <li className="px-3 py-2 text-sm text-gray-500 italic text-center">
                 Nenhum usuário encontrado.
               </li>
             )}
+            {filtered.map((u) => {
+              const sel = selectedSet.has(u.id);
+              return (
+                <li
+                  key={u.id}
+                  onClick={() => toggle(u.id)}
+                  className="px-3 py-2 text-sm rounded-md flex items-center gap-3 cursor-pointer hover:bg-gray-100"
+                >
+                  <div
+                    className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
+                      sel ? "bg-indigo-600 border-indigo-600" : "border-gray-400"
+                    }`}
+                  >
+                    {sel && <Check size={12} className="text-white" />}
+                  </div>
+                  <User size={16} />
+                  <span>{u.nome}</span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -553,93 +527,83 @@ const UserMultiSelectDropdown: React.FC<UserMultiSelectDropdownProps> = ({
   );
 };
 
-// --- MODAL: Nova Task ---
+// ======================== MODAL: NOVA TASK ========================
+
 const NewTaskModal = ({
   isOpen,
   onClose,
   users,
   allTags,
   onTaskCreated,
-  targetColumn,
-}: any) => {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  targetStatus,
+  projectId,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  users: any[];
+  allTags: Record<string, Tag>;
+  onTaskCreated: (t: Task) => void;
+  targetStatus: string;
+  projectId: string | null;
+}) => {
+  const [titulo, setTitulo] = useState("");
+  const [description, setDescription] = useState("");
+  const [data, setData] = useState("");
+  const [prazo, setPrazo] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [dueDate, setDueDate] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const resetForm = useCallback(() => {
-    setTitle('');
-    setDescription('');
-    setDueDate('');
-    setSelectedUserIds([]);
-    setSelectedTagIds([]);
-    setError('');
-  }, []);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isOpen) resetForm();
-  }, [isOpen, resetForm]);
+    if (isOpen) {
+      setTitulo("");
+      setDescription("");
+      setData("");
+      setPrazo("");
+      setSelectedUserIds([]);
+      setSelectedTagIds([]);
+      setError("");
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleTagClick = (tagId: string) => {
-    setError('');
-    setSelectedTagIds(prev =>
-      prev.includes(tagId)
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId]
+  const handleToggleTag = (id: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
   const handleSave = async () => {
-    if (!title.trim()) {
-      setError("O título é obrigatório.");
+    if (!titulo.trim()) {
+      setError("Título é obrigatório");
       return;
     }
-
     if (selectedTagIds.length === 0) {
-      setError("Selecione pelo menos uma etiqueta.");
+      setError("Selecione pelo menos uma etiqueta");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
+
     try {
-      const taskData = {
-        titulo: title.trim(),
-        userIds: selectedUserIds,
-        etiquetaIds: selectedTagIds,
+      const newTask = await apiCreateTask({
+        titulo: titulo.trim(),
         description: description.trim() || null,
-        data: dueDate || null,
-        status: "a fazer",
-      };
-
-      const newTaskFromApi = await apiCreateTask(taskData);
-
-      const populatedUsers = selectedUserIds
-        .map((id: string) => users.find((u: any) => u.id === id))
-        .filter(Boolean);
-
-      const populatedEtiquetas = selectedTagIds
-        .map((id: string) => allTags[id])
-        .filter(Boolean);
-
-      const finalNewTask: Task = {
-        ...newTaskFromApi,
-        users: populatedUsers,
+        data: data || null,
+        prazo: prazo || null,
+        status: targetStatus,
         userIds: selectedUserIds,
-        etiquetas: populatedEtiquetas,
         etiquetaIds: selectedTagIds,
-        coment: [],
-      };
+        projectId: projectId ?? undefined, // ← chave para ter Kanban por projeto
+      });
 
-      onTaskCreated(finalNewTask, targetColumn);
+      onTaskCreated(newTask);
       onClose();
-    } catch (err: any) {
-      setError(`Falha ao criar: ${err.message}`);
+    } catch (e: any) {
+      setError(e.message || "Erro ao criar tarefa");
     } finally {
       setLoading(false);
     }
@@ -647,37 +611,45 @@ const NewTaskModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md"
-        onClick={e => e.stopPropagation()}
+        className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"
+        onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Nova Tarefa</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-gray-800">
+            Nova Tarefa
+          </h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={20} />
+          </button>
+        </div>
+
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
-            <AlertCircle size={16} /> {error}
+            <AlertCircle size={16} />
+            <span>{error}</span>
           </div>
         )}
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
           <input
             type="text"
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
             placeholder="Título"
-            value={title}
-            onChange={e => { setTitle(e.target.value); setError(''); }}
-            className={`w-full px-3 py-2 border rounded-md ${
-              error && !title.trim() ? 'border-red-500' : 'border-gray-300'
-            }`}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
             disabled={loading}
           />
 
           <textarea
-            placeholder="Descrição"
             value={description}
-            onChange={e => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Descrição"
             rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
             disabled={loading}
           />
 
@@ -688,35 +660,52 @@ const NewTaskModal = ({
             disabled={loading}
           />
 
-          <input
-            type="date"
-            value={dueDate}
-            onChange={e => setDueDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            disabled={loading}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data de início
+              </label>
+              <input
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Prazo
+              </label>
+              <input
+                type="date"
+                value={prazo}
+                onChange={(e) => setPrazo(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                disabled={loading}
+              />
+            </div>
+          </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Etiqueta
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Etiquetas
             </label>
             <div className="flex flex-wrap gap-2">
-              {Object.values(allTags || {}).map((tag: Tag) => {
-                const selected = selectedTagIds.includes(tag.id);
-                const bg = selected ? (tag.color || '#4F46E5') : '#FFFFFF';
-                const border = tag.color || '#D1D5DB';
-                const textColor = selected ? '#FFFFFF' : '#374151';
-
+              {Object.values(allTags).map((tag) => {
+                const sel = selectedTagIds.includes(tag.id);
                 return (
                   <button
                     key={tag.id}
-                    onClick={() => handleTagClick(tag.id)}
+                    type="button"
+                    onClick={() => handleToggleTag(tag.id)}
                     disabled={loading}
-                    className="px-3 py-1 text-sm font-semibold rounded-full transition-colors border shadow-sm"
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border shadow-sm ${
+                      sel ? "text-white" : "text-gray-700"
+                    }`}
                     style={{
-                      backgroundColor: bg,
-                      borderColor: border,
-                      color: textColor,
+                      backgroundColor: sel ? tag.color : "#fff",
+                      borderColor: tag.color,
                     }}
                   >
                     {tag.nome}
@@ -727,18 +716,18 @@ const NewTaskModal = ({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3 border-t pt-4">
+        <div className="mt-6 flex justify-end gap-2">
           <button
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50"
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300 disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
-            disabled={loading || !title.trim()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+            disabled={loading || !titulo.trim()}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
           >
             {loading && <Loader2 className="animate-spin h-4 w-4" />}
             Salvar
@@ -749,347 +738,247 @@ const NewTaskModal = ({
   );
 };
 
-// --- MODAL: Detalhes da Task ---
+// ======================== MODAL: DETALHE / EDIÇÃO ========================
+
 const TaskDetailModal = ({
-  isOpen,
-  onClose,
   task,
-  users,
-  allTags,
+  onClose,
   onTaskUpdated,
   onTaskDeleted,
-  loggedInUser,
-}: any) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const [editData, setEditData] = useState<Task | null>(null);
-  const [newComment, setNewComment] = useState('');
-  const [comments, setComments] = useState<FrontendComment[]>([]);
+  users,
+  tags,
+}: {
+  task: Task;
+  onClose: () => void;
+  onTaskUpdated: (t: Task) => void;
+  onTaskDeleted: (id: string) => void;
+  users: any[];
+  tags: Record<string, Tag>;
+}) => {
+  const { user: loggedUser } = useAuth();
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState<Task>(task);
   const [loading, setLoading] = useState(false);
+  const [comments, setComments] = useState<FrontendComment[]>([]);
+  const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    const loadTaskAndComments = async () => {
-      if (task && isOpen) {
-        setEditData({ ...task, coment: [] });
-        setIsEditing(false);
-        setIsConfirmingDelete(false);
-        setError('');
-        setNewComment('');
-        setComments([]);
+    setEditData(task);
+  }, [task]);
 
-        setCommentLoading(true);
-        try {
-          const fetchedComments = await apiGetCommentsByTask(task.id);
-          const frontendComments = fetchedComments
-            .map(beComment => ({
-              id: beComment.id,
-              text: beComment.comment,
-              author: beComment.user?.nome || 'Desconhecido',
-              date: beComment.createdAt,
-            }))
-            .sort(
-              (a, b) =>
-                new Date(b.date).getTime() - new Date(a.date).getTime()
-            );
-          setComments(frontendComments);
-        } catch (err: any) {
-          console.error("Erro ao buscar comentários:", err);
-          setError("Falha ao carregar comentários.");
-          setComments([]);
-        } finally {
-          setCommentLoading(false);
-        }
-      } else if (!isOpen) {
-        setEditData(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const backendComments = await apiGetCommentsByTask(task.id);
+        const mapped: FrontendComment[] = backendComments.map((c) => ({
+          id: c.id,
+          author: c.user?.nome || "Desconhecido",
+          date: c.createdAt,
+          text: c.comment,
+        }));
+        setComments(mapped.sort((a, b) => (a.date < b.date ? 1 : -1)));
+      } catch {
         setComments([]);
       }
-    };
-    loadTaskAndComments();
-  }, [task, isOpen]);
+    })();
+  }, [task.id]);
 
-  if (!isOpen || !editData) return null;
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setEditData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const toggleUser = (id: string) => {
+    setEditData((prev) => {
+      const cur = new Set(prev.userIds);
+      cur.has(id) ? cur.delete(id) : cur.add(id);
+      const newUserIds = Array.from(cur);
+      const newUsers = users.filter((u) => newUserIds.includes(u.id));
+      return { ...prev, userIds: newUserIds, users: newUsers };
+    });
+  };
+
+  const toggleTag = (id: string) => {
+    setEditData((prev) => {
+      const cur = new Set(prev.etiquetaIds);
+      cur.has(id) ? cur.delete(id) : cur.add(id);
+      const newEtiquetaIds = Array.from(cur);
+      const newEtiquetas = newEtiquetaIds
+        .map((eid) => tags[eid])
+        .filter(Boolean);
+      return { ...prev, etiquetaIds: newEtiquetaIds, etiquetas: newEtiquetas };
+    });
+  };
 
   const handleSave = async () => {
-    if (!editData.etiquetaIds || editData.etiquetaIds.length === 0) {
-      setError("Selecione pelo menos uma etiqueta.");
-      return;
-    }
-
     setLoading(true);
-    setError('');
     try {
-      const updateData = {
+      const updated = await apiUpdateTask(task.id, {
         titulo: editData.titulo,
-        userIds: editData.userIds || [],
-        etiquetaIds: editData.etiquetaIds || [],
-        description: editData.description || null,
-        data: editData.data || null,
+        description: editData.description,
+        data: editData.data,
+        prazo: editData.prazo,
         status: editData.status,
-      };
-
-      const updatedTaskResult = await apiUpdateTask(editData.id, updateData);
-
-      const taskWithLocalData: Task = {
-        ...updatedTaskResult,
-        users: editData.users,
         userIds: editData.userIds,
-        etiquetas: editData.etiquetas,
         etiquetaIds: editData.etiquetaIds,
-        coment: comments,
-      };
-
-      onTaskUpdated(taskWithLocalData);
-      setEditData(taskWithLocalData);
-      setIsEditing(false);
-    } catch (err: any) {
-      setError(`Falha ao atualizar: ${err.message}`);
+        // projectId: editData.projectId, // se quiser permitir edição de projeto no futuro
+      });
+      onTaskUpdated(updated);
+      setEditMode(false);
+    } catch (e: any) {
+      alert(e.message || "Erro ao atualizar tarefa");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
+    if (!confirm("Deseja realmente excluir esta tarefa?")) return;
     setLoading(true);
-    setError('');
     try {
-      await apiDeleteTask(editData.id);
-      onTaskDeleted(editData.id);
+      await apiDeleteTask(task.id);
+      onTaskDeleted(task.id);
       onClose();
-    } catch (err: any) {
-      setError(`Falha: ${err.message}`);
+    } catch {
+      alert("Erro ao excluir tarefa");
+    } finally {
       setLoading(false);
     }
   };
 
   const handleAddComment = async () => {
-    if (newComment.trim() && loggedInUser?.id && editData?.id) {
-      setCommentLoading(true);
-      setError('');
-      const optimisticId = `optimistic-${Date.now()}`;
-      const optimisticComment: FrontendComment = {
-        id: optimisticId,
-        text: newComment.trim(),
-        author: loggedInUser.nome,
-        date: new Date().toISOString(),
-      };
-      const previousComments = comments;
-
-      try {
-        setComments(prev => [optimisticComment, ...prev]);
-        setNewComment('');
-
-        const newBackendComment = await apiAddComment(
-          editData.id,
-          optimisticComment.text,
-          loggedInUser.id
-        );
-        if (
-          !newBackendComment?.id ||
-          !newBackendComment.comment ||
-          !newBackendComment.user ||
-          !newBackendComment.createdAt
-        ) {
-          throw new Error("Resposta inválida.");
-        }
-
-        const finalFrontendComment: FrontendComment = {
-          id: newBackendComment.id,
-          text: newBackendComment.comment,
-          author: newBackendComment.user.nome,
-          date: newBackendComment.createdAt,
-        };
-
-        setComments(prev =>
-          prev.map(c => (c.id === optimisticId ? finalFrontendComment : c))
-        );
-
-        setComments(currentComments => {
-          const updatedTaskForBoard = {
-            ...editData,
-            coment: currentComments,
-          };
-          setEditData(updatedTaskForBoard);
-          onTaskUpdated(updatedTaskForBoard);
-          return currentComments;
-        });
-      } catch (err: any) {
-        console.error("Erro comentário:", err);
-        setError(`Falha ao adicionar comentário: ${err.message}`);
-        setComments(previousComments);
-        setNewComment(optimisticComment.text);
-      } finally {
-        setCommentLoading(false);
-      }
-    } else if (!loggedInUser?.id) {
-      setError("Utilizador não logado.");
-    } else if (!editData?.id) {
-      setError("Erro: ID da tarefa.");
-    }
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setEditData(prev => {
-      if (!prev) return null;
-
-      if (name === 'data') {
-        const currentIsoDate = prev.data ? new Date(prev.data) : new Date(0);
-        const newDate = value ? new Date(value) : null;
-        if (newDate) {
-          const hours = currentIsoDate.getUTCHours();
-          const minutes = currentIsoDate.getUTCMinutes();
-          const seconds = currentIsoDate.getUTCSeconds();
-          newDate.setUTCHours(hours, minutes, seconds, 0);
-          return { ...prev, data: newDate.toISOString() };
-        } else {
-          return { ...prev, data: null };
-        }
-      } else {
-        return { ...prev, [name]: value };
-      }
-    });
-  };
-
-  const handleTagClick = (tagId: string) => {
-    setError('');
-    setEditData(prev => {
-      if (!prev) return null;
-      const currentTagIds = prev.etiquetaIds || [];
-      const newTagIds = currentTagIds.includes(tagId)
-        ? currentTagIds.filter(id => id !== tagId)
-        : [...currentTagIds, tagId];
-      const newEtiquetas = newTagIds
-        .map(id => allTags[id])
-        .filter(Boolean);
-
-      return {
-        ...prev,
-        etiquetaIds: newTagIds,
-        etiquetas: newEtiquetas,
-      };
-    });
-  };
-
-  const handleCloseModal = () => onClose();
-
-  const renderContent = () => {
-    if (isConfirmingDelete) {
-      return (
-        <>
-          <h3 className="text-xl font-bold text-gray-800 mb-4">
-            Confirmar Exclusão
-          </h3>
-          <p>Tem a certeza que deseja apagar a tarefa "{editData.titulo}"?</p>
-          {error && (
-            <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
-              {error}
-            </div>
-          )}
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              onClick={() => setIsConfirmingDelete(false)}
-              disabled={loading}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={loading}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center justify-center w-24"
-            >
-              {loading ? (
-                <Loader2 className="animate-spin h-4 w-4" />
-              ) : (
-                'Apagar'
-              )}
-            </button>
-          </div>
-        </>
+    if (!commentText.trim() || !loggedUser?.id) return;
+    setCommentLoading(true);
+    try {
+      const backendComment = await apiAddComment(
+        task.id,
+        commentText.trim(),
+        loggedUser.id
       );
+      const newComment: FrontendComment = {
+        id: backendComment.id,
+        author: backendComment.user?.nome || "Desconhecido",
+        date: backendComment.createdAt,
+        text: backendComment.comment,
+      };
+      setComments((prev) => [newComment, ...prev]);
+      setCommentText("");
+    } catch (e: any) {
+      alert(e.message || "Erro ao adicionar comentário");
+    } finally {
+      setCommentLoading(false);
     }
+  };
 
-    if (isEditing) {
-      return (
-        <>
-          <h3 className="text-xl font-bold text-gray-800 mb-4">
-            Editar Tarefa
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-xl font-bold text-gray-800">
+            {editMode ? "Editar Tarefa" : task.titulo}
           </h3>
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
-              {error}
-            </div>
-          )}
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {editMode ? (
+          <>
             <input
               name="titulo"
-              type="text"
               value={editData.titulo}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md mb-3 text-sm"
             />
+
             <textarea
               name="description"
-              value={editData.description || ''}
+              value={editData.description ?? ""}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              rows={3}
-              disabled={loading}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md mb-4 text-sm"
             />
 
-            <UserMultiSelectDropdown
-              allUsers={users}
-              selectedUserIds={editData.userIds || []}
-              onChange={(newIds) => {
-                setEditData(prev =>
-                  prev
-                    ? {
-                        ...prev,
-                        userIds: newIds,
-                        users: users.filter((u: any) => newIds.includes(u.id)),
-                      }
-                    : null
-                );
-              }}
-              disabled={loading}
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Data de início
+                </label>
+                <input
+                  type="date"
+                  name="data"
+                  value={editData.data ? editData.data.split("T")[0] : ""}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Prazo
+                </label>
+                <input
+                  type="date"
+                  name="prazo"
+                  value={editData.prazo ? editData.prazo.split("T")[0] : ""}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+            </div>
 
-            <input
-              name="data"
-              type="date"
-              value={editData.data ? editData.data.split('T')[0] : ''}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              disabled={loading}
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Etiqueta
-              </label>
+            <div className="mb-4">
+              <span className="block text-sm font-medium text-gray-700 mb-1">
+                Responsáveis
+              </span>
               <div className="flex flex-wrap gap-2">
-                {Object.values(allTags || {}).map((tag: Tag) => {
-                  const selected =
-                    (editData.etiquetaIds || []).includes(tag.id);
-                  const bg = selected ? (tag.color || '#4F46E5') : '#FFFFFF';
-                  const border = tag.color || '#D1D5DB';
-                  const textColor = selected ? '#FFFFFF' : '#374151';
+                {users.map((u) => {
+                  const sel = editData.userIds.includes(u.id);
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => toggleUser(u.id)}
+                      className={`px-3 py-1 rounded-full border text-xs ${
+                        sel ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
+                      }`}
+                    >
+                      {u.nome}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
+            <div className="mb-4">
+              <span className="block text-sm font-medium text-gray-700 mb-1">
+                Etiquetas
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(tags).map((tag) => {
+                  const sel = editData.etiquetaIds.includes(tag.id);
                   return (
                     <button
                       key={tag.id}
-                      onClick={() => handleTagClick(tag.id)}
-                      disabled={loading}
-                      className="px-3 py-1 text-sm font-semibold rounded-full transition-colors border shadow-sm"
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      className={`px-3 py-1 rounded-full border text-xs ${
+                        sel ? "text-white" : "text-gray-700"
+                      }`}
                       style={{
-                        backgroundColor: bg,
-                        borderColor: border,
-                        color: textColor,
+                        backgroundColor: sel ? tag.color : "#fff",
+                        borderColor: tag.color,
                       }}
                     >
                       {tag.nome}
@@ -1098,360 +987,276 @@ const TaskDetailModal = ({
                 })}
               </div>
             </div>
-          </div>
 
-          <div className="mt-6 flex justify-end gap-3 border-t pt-4">
-            <button
-              onClick={() => setIsEditing(false)}
-              disabled={loading}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={loading}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              {loading && <Loader2 className="animate-spin h-4 w-4" />}
-              Salvar
-            </button>
-          </div>
-        </>
-      );
-    }
-
-    // Modo visualização
-    return (
-      <>
-        <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-bold text-gray-800">{editData.titulo}</h3>
-          <button
-            onClick={handleCloseModal}
-            className="p-1 rounded-full hover:bg-gray-200"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        {error && !commentLoading && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
-            {error}
-          </div>
-        )}
-        <div className="flex-grow overflow-y-auto pr-2 max-h-[calc(90vh-160px)]">
-          <TaskTags etiquetas={editData.etiquetas} />
-
-          {editData.description && (
-            <p className="text-gray-600 my-4 whitespace-pre-wrap break-words">
-              {linkifyText(editData.description)}
-            </p>
-          )}
-
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-6">
-            <div>
-              <strong className="block text-gray-500">Responsáveis:</strong>
-              {editData.users && editData.users.length > 0
-                ? editData.users.map(u => u.nome).join(', ')
-                : 'Não atribuída'}
-            </div>
-            <div>
-              <strong className="block text-gray-500">Data:</strong>
-              {editData.data
-                ? new Date(editData.data).toLocaleDateString('pt-BR', {
-                    timeZone: 'UTC',
-                  })
-                : 'Não definida'}
-            </div>
-          </div>
-
-          <div className="border-t pt-4">
-            <h4 className="font-semibold text-gray-700 mb-3">
-              Comentários ({comments.length})
-            </h4>
-            {error && commentLoading && (
-              <div className="mb-2 p-2 text-sm bg-red-100 border border-red-300 text-red-700 rounded">
-                {error}
-              </div>
-            )}
-            <div className="space-y-3 mb-4 max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50">
-              {commentLoading ? (
-                <div className="flex justify-center items-center py-4">
-                  <Loader2 className="animate-spin h-5 w-5 text-gray-400" />
-                </div>
-              ) : comments.length === 0 ? (
-                <p className="text-sm text-gray-500 italic text-center py-2">
-                  Nenhum comentário.
-                </p>
-              ) : (
-                comments.map((comment: FrontendComment) => (
-                  <div key={comment.id} className="flex items-start gap-3">
-                    <div
-                      className="bg-gray-300 rounded-full h-8 w-8 flex items-center justify-center font-semibold text-sm text-gray-600 flex-shrink-0"
-                      title={comment.author}
-                    >
-                      {comment.author
-                        ? comment.author.charAt(0).toUpperCase()
-                        : '?'}
-                    </div>
-                    <div className="flex-1 bg-white p-2 rounded shadow-sm border border-gray-200">
-                      <p className="font-semibold text-sm text-gray-800">
-                        {comment.author || 'Desconhecido'}{' '}
-                        <span className="text-xs text-gray-400 font-normal ml-1">
-                          {comment.date
-                            ? new Date(comment.date).toLocaleString('pt-BR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : ''}
-                        </span>
-                      </p>
-                      <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap break-words">
-                        {linkifyText(comment.text)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                type="text"
-                value={newComment}
-                onChange={e => setNewComment(e.target.value)}
-                onKeyDown={e =>
-                  e.key === 'Enter' && !commentLoading && handleAddComment()
-                }
-                placeholder="Adicionar comentário..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
-                disabled={commentLoading}
-              />
+            <div className="flex justify-end gap-2 mt-4">
               <button
-                onClick={handleAddComment}
-                disabled={commentLoading || !newComment.trim()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center w-28 text-sm"
+                onClick={() => setEditMode(false)}
+                disabled={loading}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300 disabled:opacity-50"
               >
-                {commentLoading ? (
-                  <Loader2 className="animate-spin h-4 w-4" />
-                ) : (
-                  'Comentar'
-                )}
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={loading}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {loading && <Loader2 className="animate-spin h-4 w-4" />}
+                Salvar
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        ) : (
+          <>
+            {task.description && (
+              <p className="text-sm text-gray-700 mb-4 whitespace-pre-wrap">
+                {linkifyText(task.description)}
+              </p>
+            )}
 
-        <div className="mt-auto flex justify-end gap-3 border-t pt-4">
-          <button
-            onClick={() => setIsConfirmingDelete(true)}
-            disabled={loading}
-            className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 flex items-center gap-2 disabled:opacity-50"
-          >
-            <Trash2 size={16} /> Apagar
-          </button>
-          <button
-            onClick={() => setIsEditing(true)}
-            disabled={loading}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 flex items-center gap-2 disabled:opacity-50"
-          >
-            <Edit size={16} /> Editar
-          </button>
-        </div>
-      </>
-    );
-  };
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 text-sm">
+              <div>
+                <span className="font-semibold text-gray-600">Início: </span>
+                {task.data
+                  ? new Date(task.data).toLocaleDateString("pt-BR", {
+                      timeZone: "UTC",
+                    })
+                  : "—"}
+              </div>
+              <div>
+                <span className="font-semibold text-gray-600">Prazo: </span>
+                {task.prazo
+                  ? new Date(task.prazo).toLocaleDateString("pt-BR", {
+                      timeZone: "UTC",
+                    })
+                  : "—"}
+              </div>
+              <div className="col-span-2">
+                <span className="font-semibold text-gray-600">
+                  Responsáveis:{" "}
+                </span>
+                {task.users && task.users.length > 0
+                  ? task.users.map((u) => u.nome).join(", ")
+                  : "Nenhum"}
+              </div>
+              <div className="col-span-2">
+                <span className="font-semibold text-gray-600">
+                  Projeto:{" "}
+                </span>
+                {task.projectName || "—"}
+              </div>
+            </div>
 
-  return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      onClick={handleCloseModal}
-    >
-      <div
-        className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
-        onClick={e => e.stopPropagation()}
-      >
-        {renderContent()}
+            <TaskTags etiquetas={task.etiquetas} />
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setEditMode(true)}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-md text-sm flex items-center gap-2 hover:bg-yellow-600"
+              >
+                <Edit size={16} />
+                Editar
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm flex items-center gap-2 hover:bg-red-700"
+              >
+                <Trash2 size={16} />
+                Excluir
+              </button>
+            </div>
+
+            <div className="mt-6 border-t pt-4">
+              <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <MessageSquare size={16} /> Comentários
+              </h4>
+
+              <div className="space-y-3 mb-3 max-h-40 overflow-y-auto">
+                {comments.length === 0 && (
+                  <p className="text-xs text-gray-500 italic">
+                    Nenhum comentário.
+                  </p>
+                )}
+                {comments.map((c) => (
+                  <div
+                    key={c.id}
+                    className="p-2 border border-gray-200 rounded-md bg-gray-50"
+                  >
+                    <p className="text-xs font-semibold text-gray-800">
+                      {c.author}{" "}
+                      <span className="text-[10px] text-gray-500 ml-1">
+                        {new Date(c.date).toLocaleString("pt-BR")}
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">
+                      {linkifyText(c.text)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" &&
+                    !commentLoading &&
+                    handleAddComment()
+                  }
+                  placeholder="Adicionar comentário..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-xs"
+                  disabled={commentLoading}
+                />
+                <button
+                  onClick={handleAddComment}
+                  disabled={commentLoading || !commentText.trim()}
+                  className="px-3 py-2 bg-indigo-600 text-white rounded-md text-xs flex items-center gap-1 hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {commentLoading && (
+                    <Loader2 className="animate-spin h-3 w-3" />
+                  )}
+                  Enviar
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 };
 
-// --- MODAL: Gerir Etiquetas ---
+// ======================== MODAL: GERIR ETIQUETAS ========================
+
 const ManageTagsModal = ({
   isOpen,
   onClose,
   tags,
-  onCreateTag,
-  onDeleteTag,
-}: any) => {
-  const [tagList, setTagList] = useState<Tag[]>([]);
-  const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#3B82F6');
+  onTagsChange,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  tags: Record<string, Tag>;
+  onTagsChange: (t: Record<string, Tag>) => void;
+}) => {
+  const [nome, setNome] = useState("");
+  const [color, setColor] = useState("#3B82F6");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setTagList(
-        typeof tags === 'object' && tags !== null ? Object.values(tags) : []
-      );
-      setError(null);
-      setNewTagName('');
-    }
-  }, [tags, isOpen]);
-
-  const colorOptions = [
-    { nome: 'Azul', value: '#3B82F6' },
-    { nome: 'Verde', value: '#10B981' },
-    { nome: 'Vermelho', value: '#EF4444' },
-    { nome: 'Amarelo', value: '#F59E0B' },
-    { nome: 'Roxo', value: '#8B5CF6' },
-    { nome: 'Rosa', value: '#EC4899' },
-  ];
-
-  if (!isOpen) return null;
 
   const handleAddTag = async () => {
-    if (newTagName.trim()) {
-      setLoading(true);
-      setError(null);
-      try {
-        await onCreateTag({ nome: newTagName.trim(), color: newTagColor });
-        setNewTagName('');
-      } catch (err: any) {
-        setError(`Falha: ${err.message}`);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleDeleteTag = async (tagId: string) => {
+    if (!nome.trim()) return;
     setLoading(true);
-    setError(null);
     try {
-      await onDeleteTag(tagId);
-    } catch (err: any) {
-      setError(`Falha: ${err.message}`);
+      const newTag = await apiCreateTag({ nome: nome.trim(), color });
+      onTagsChange({ ...tags, [newTag.id]: newTag });
+      setNome("");
+      setColor("#3B82F6");
+    } catch {
+      alert("Erro ao criar etiqueta");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDeleteTag = async (id: string) => {
+    if (!confirm("Excluir etiqueta?")) return;
+    try {
+      await apiDeleteTag(id);
+      const copy = { ...tags };
+      delete copy[id];
+      onTagsChange(copy);
+    } catch {
+      alert("Erro ao excluir etiqueta");
+    }
+  };
+
+  if (!isOpen) return null;
+
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col relative"
-        onClick={e => e.stopPropagation()}
+        className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800">Gerir Etiquetas</h3>
+          <h3 className="text-lg font-bold text-gray-800">
+            Gerir Etiquetas
+          </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-200"
+            className="text-gray-500 hover:text-gray-700"
           >
             <X size={20} />
           </button>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
-            <AlertCircle size={16} /> {error}
-          </div>
-        )}
-
-        {loading && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg z-10">
-            <Loader2 className="animate-spin h-8 w-8 text-indigo-600" />
-          </div>
-        )}
-
-        <div className="mb-4 flex-1 overflow-y-auto pr-2">
-          <h4 className="font-semibold mb-2">
-            Etiquetas ({tagList.length})
-          </h4>
-          <div className="space-y-2">
-            {tagList.length > 0 ? (
-              tagList.map(tag => (
-                <div
-                  key={tag.id}
-                  className="flex justify-between items-center bg-gray-100 p-3 rounded-lg"
-                >
-                  <span
-                    className="px-3 py-1 rounded-full text-xs font-semibold"
-                    style={{
-                      backgroundColor: tag.color || '#6B7280',
-                      color: 'white',
-                    }}
-                  >
-                    {tag.nome}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteTag(tag.id)}
-                    disabled={loading}
-                    className="text-red-500 hover:text-red-700 disabled:opacity-50 p-1 rounded hover:bg-red-100"
-                    aria-label={`Apagar ${tag.nome}`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500 italic">
-                Nenhuma etiqueta.
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="border-t pt-4">
-          <h4 className="font-semibold mb-2">Nova Etiqueta</h4>
-          <div className="flex items-center gap-2">
+        <div className="space-y-3 mb-4">
+          <input
+            type="text"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Nome da etiqueta"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">
+              Cor
+            </label>
             <input
-              type="text"
-              placeholder="Nome"
-              value={newTagName}
-              onChange={e => setNewTagName(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
-              disabled={loading}
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="w-full h-10 border border-gray-300 rounded-md"
             />
-            <select
-              value={newTagColor}
-              onChange={e => setNewTagColor(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm w-[100px]"
-              disabled={loading}
-            >
-              {colorOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.nome}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={handleAddTag}
-              disabled={!newTagName.trim() || loading}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold whitespace-nowrap disabled:opacity-50 flex items-center justify-center w-28"
-            >
-              {loading ? (
-                <Loader2 className="animate-spin h-4 w-4" />
-              ) : (
-                'Adicionar'
-              )}
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={handleAddTag}
+            disabled={loading || !nome.trim()}
+            className="w-full px-4 py-2 bg-indigo-600 text-white text-sm rounded-md flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {loading && <Loader2 className="animate-spin h-4 w-4" />}
+            Adicionar
+          </button>
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="space-y-2">
+          {Object.values(tags).length === 0 && (
+            <p className="text-xs text-gray-500 italic">
+              Nenhuma etiqueta criada.
+            </p>
+          )}
+          {Object.values(tags).map((tag) => (
+            <div
+              key={tag.id}
+              className="flex items-center justify-between px-3 py-2 border border-gray-200 rounded-md"
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-4 h-4 rounded-full"
+                  style={{ backgroundColor: tag.color }}
+                />
+                <span className="text-sm text-gray-800">{tag.nome}</span>
+              </div>
+              <button
+                onClick={() => handleDeleteTag(tag.id)}
+                className="text-red-600 hover:text-red-800"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4">
           <button
             onClick={onClose}
-            disabled={loading}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold disabled:opacity-50"
+            className="w-full px-4 py-2 bg-gray-200 text-gray-800 text-sm rounded-md hover:bg-gray-300"
           >
             Fechar
           </button>
@@ -1461,587 +1266,29 @@ const ManageTagsModal = ({
   );
 };
 
-interface TaskBoardPageProps {
-  initialBoard: TaskBoard;
-}
+// ======================== DND WRAPPERS ========================
 
-// --- COMPONENTE PRINCIPAL ---
-const TaskBoardPage: React.FC<TaskBoardPageProps> = ({ initialBoard }) => {
-  const { user: loggedInUser } = useAuth();
-  const [board, setBoard] = useState<TaskBoard>(initialBoard);
-  const [tags, setTags] = useState<Record<string, Tag>>({});
-  const [users, setUsers] = useState<any[]>([]);
-  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isManageTagsModalOpen, setIsManageTagsModalOpen] = useState(false);
-  const [targetColumn, setTargetColumn] = useState<string | null>(null);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const isInitialLoad = useRef(true);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-
-  // dnd sensors
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } })
-  );
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [tagsArray, tasksArrayFromApi, usersArray] = await Promise.all([
-          apiGetTags(),
-          apiGetTasks(),
-          apiGetUsers(),
-        ]);
-
-        const tagsObject = transformTagsArrayToObject(tagsArray);
-        setTags(tagsObject);
-        setUsers(usersArray);
-
-        const columnOrder = Object.keys(initialBoard.columns);
-
-        const tasksById = tasksArrayFromApi.reduce((acc, task) => {
-          acc[task.id] = task;
-          return acc;
-        }, {} as Record<string, Task>);
-
-        const initialColumns = { ...initialBoard.columns };
-        columnOrder.forEach(colId => {
-          if (initialColumns[colId]) {
-            initialColumns[colId] = {
-              ...initialColumns[colId],
-              taskIds: [],
-            };
-          }
-        });
-
-        tasksArrayFromApi.forEach(task => {
-          const taskStatus = task.status?.toLowerCase();
-          const targetColId = columnOrder.find(
-            colId =>
-              initialColumns[colId]?.title.toLowerCase() === taskStatus
-          );
-          const destinationColId = targetColId || columnOrder[0];
-          if (initialColumns[destinationColId]) {
-            initialColumns[destinationColId].taskIds.push(task.id);
-          } else {
-            const firstValidColId = columnOrder.find(
-              colId => initialColumns[colId]
-            );
-            if (firstValidColId) {
-              initialColumns[firstValidColId].taskIds.push(task.id);
-            }
-          }
-        });
-
-        const newBoard: TaskBoard = {
-          ...initialBoard,
-          columnOrder,
-          columns: initialColumns,
-          tasks: tasksById,
-          tags: tagsObject,
-        };
-        setBoard(newBoard);
-      } catch (err: any) {
-        setError(`Falha ao carregar dados: ${err.message}`);
-      } finally {
-        setLoading(false);
-        isInitialLoad.current = false;
-      }
-    };
-
-    loadData();
-  }, [initialBoard]);
-
-  const handleTaskCreated = useCallback((newTask: Task, columnId: string | null) => {
-    const taskToAdd = {
-      ...newTask,
-      coment: [],
-    };
-    setBoard(prev => {
-      const targetCol = columnId || prev.columnOrder[0];
-      if (!prev.columns[targetCol]) return prev;
-      const newTasks = { ...prev.tasks, [taskToAdd.id]: taskToAdd };
-      const newColumns = {
-        ...prev.columns,
-        [targetCol]: {
-          ...prev.columns[targetCol],
-          taskIds: [taskToAdd.id, ...prev.columns[targetCol].taskIds],
-        },
-      };
-      return { ...prev, tasks: newTasks, columns: newColumns };
-    });
-  }, []);
-
-  const handleTaskUpdated = useCallback((updatedTask: Task) => {
-    const taskWithComments: Task = {
-      ...updatedTask,
-      etiquetas: Array.isArray(updatedTask.etiquetas)
-        ? updatedTask.etiquetas
-        : [],
-      etiquetaIds: Array.isArray(updatedTask.etiquetaIds)
-        ? updatedTask.etiquetaIds
-        : [],
-      users: Array.isArray(updatedTask.users) ? updatedTask.users : [],
-      userIds: Array.isArray(updatedTask.userIds) ? updatedTask.userIds : [],
-      coment: Array.isArray(updatedTask.coment) ? updatedTask.coment : [],
-    };
-
-    setBoard(prev => ({
-      ...prev,
-      tasks: { ...prev.tasks, [taskWithComments.id]: taskWithComments },
-    }));
-  }, []);
-
-  const handleTaskDeleted = useCallback((taskId: string) => {
-    setBoard(prev => {
-      const newTasks = { ...prev.tasks };
-      delete newTasks[taskId];
-      const newColumns = { ...prev.columns };
-      Object.keys(newColumns).forEach(colId => {
-        if (newColumns[colId]?.taskIds) {
-          newColumns[colId].taskIds = newColumns[colId].taskIds.filter(
-            id => id !== taskId
-          );
-        }
-      });
-      return { ...prev, tasks: newTasks, columns: newColumns };
-    });
-  }, []);
-
-  const handleCreateTag = async (newTagData: NewTagData) => {
-    try {
-      const newTag = await apiCreateTag(newTagData);
-      setTags(prev => ({ ...prev, [newTag.id]: newTag }));
-      setBoard(prev => ({
-        ...prev,
-        tags: { ...prev.tags, [newTag.id]: newTag },
-      }));
-    } catch (err: any) {
-      setError(`Falha: ${err.message}`);
-    }
-  };
-
-  const handleDeleteTag = async (tagId: string) => {
-    try {
-      await apiDeleteTag(tagId);
-      setTags(prev => {
-        const d = { ...prev };
-        delete d[tagId];
-        return d;
-      });
-
-      setBoard(prevBoard => {
-        const newTasks = { ...prevBoard.tasks };
-        Object.keys(newTasks).forEach(taskId => {
-          const task = newTasks[taskId];
-          if (task.etiquetaIds && task.etiquetaIds.includes(tagId)) {
-            newTasks[taskId] = {
-              ...task,
-              etiquetaIds: task.etiquetaIds.filter(id => id !== tagId),
-              etiquetas: task.etiquetas.filter(et => et.id !== tagId),
-            };
-          }
-        });
-        const newBoardTags = { ...prevBoard.tags };
-        delete newBoardTags[tagId];
-        return { ...prevBoard, tasks: newTasks, tags: newBoardTags };
-      });
-    } catch (err: any) {
-      setError(`Falha: ${err.message}`);
-    }
-  };
-
-  const handleOpenNewTaskModal = (columnId: string) => {
-    setTargetColumn(columnId);
-    setIsNewTaskModalOpen(true);
-  };
-
-  const handleOpenDetailModal = (task: Task) => {
-    const currentTaskState = board.tasks[task.id] || task;
-    setSelectedTask({ ...currentTaskState, coment: [] });
-    setIsDetailModalOpen(true);
-  };
-
-  const handleCloseModals = () => {
-    setIsNewTaskModalOpen(false);
-    setIsDetailModalOpen(false);
-    setIsManageTagsModalOpen(false);
-    setSelectedTask(null);
-  };
-
-  const findContainer = (id: string) => {
-    if (!board) return null;
-    if (id in board.columns) return id;
-    return board.columnOrder.find(colId =>
-      board.columns[colId].taskIds.includes(id)
-    );
-  };
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    if (board) {
-      setActiveTask(board.tasks[active.id as string] || null);
-    }
-    document.body.classList.add('dragging');
-  };
-
-  // --- NOVO handleDropOnBackend baseado no código que funciona ---
-  const handleDropOnBackend = useCallback(
-    async (taskToMove: Task, targetColumnId: string, previousBoard: TaskBoard) => {
-      const taskId = taskToMove.id;
-
-      try {
-        const targetColumn = previousBoard.columns[targetColumnId];
-        const newStatus = targetColumn?.title?.toLowerCase();
-        if (!newStatus) {
-          throw new Error('Coluna de destino ou título não encontrado.');
-        }
-
-        const updatedTaskFromApi = await axios.patch(`${API_TASKS_URL}/${taskId}`, {
-          status: newStatus,
-          userId: taskToMove.userIds || [],
-          etiquetaId: taskToMove.etiquetaIds || [],
-        });
-
-        const taskFromPatch = updatedTaskFromApi.data;
-
-        const etiquetas: Tag[] = Array.isArray(taskFromPatch.etiquetas)
-          ? taskFromPatch.etiquetas
-          : Array.isArray(taskFromPatch.etiqueta)
-          ? taskFromPatch.etiqueta
-          : [];
-        const users: any[] = Array.isArray(taskFromPatch.users)
-          ? taskFromPatch.users
-          : Array.isArray(taskFromPatch.user)
-          ? taskFromPatch.user
-          : [];
-
-        setBoard(prev => {
-          if (!prev) return prev;
-          const currentComments = previousBoard.tasks[taskId]?.coment || [];
-          const finalDroppedTask: Task = {
-            ...taskFromPatch,
-            users,
-            userIds: users.map((u: any) => u.id),
-            etiquetas,
-            etiquetaIds: etiquetas.map((t: Tag) => t.id),
-            coment: currentComments,
-          };
-
-          return {
-            ...prev,
-            tasks: { ...prev.tasks, [taskId]: finalDroppedTask },
-          };
-        });
-      } catch (err: any) {
-        const errorMsg = err?.response?.data?.message
-          ? Array.isArray(err.response.data.message)
-            ? err.response.data.message.join(', ')
-            : err.response.data.message
-          : err?.message;
-        setError(`Falha ao mover: ${errorMsg}. Revertendo.`);
-        setBoard(previousBoard);
-      }
-    },
-    [],
-  );
-
-  // --- NOVO handleDragEnd com a mesma lógica do OperationalTasksPage ---
-  const handleDragEnd = (event: DragEndEvent) => {
-    document.body.classList.remove('dragging');
-    setActiveTask(null);
-
-    const { active, over } = event;
-    if (!over || !board) return;
-
-    const taskId = String(active.id);
-    const overId = String(over.id);
-    const taskToMove = board.tasks[taskId];
-    if (!taskToMove) return;
-
-    const startColumnId = findContainer(taskId);
-    let targetColumnId = findContainer(overId);
-
-    if (!startColumnId || !targetColumnId) return;
-
-    // Se o "over" for um card (task), ajusta para a coluna desse card
-    if (board.tasks[targetColumnId]) {
-      targetColumnId = findContainer(targetColumnId) as string;
-    }
-    if (!targetColumnId) return;
-
-    // Mudando de coluna (status)
-    if (startColumnId !== targetColumnId) {
-      const previousBoard = board;
-
-      setBoard(prev => {
-        if (!prev) return prev;
-        const sourceCol = prev.columns[startColumnId];
-        const targetCol = prev.columns[targetColumnId];
-        if (!sourceCol || !targetCol) return prev;
-
-        const sourceTaskIds = sourceCol.taskIds.filter(id => id !== taskId);
-
-        let targetIndex = targetCol.taskIds.length;
-
-        if (board.tasks[overId]) {
-          const overTaskIndex = targetCol.taskIds.indexOf(overId);
-          if (overTaskIndex !== -1) {
-            targetIndex = overTaskIndex;
-          }
-        }
-
-        const targetTaskIds = [...targetCol.taskIds];
-        targetTaskIds.splice(targetIndex, 0, taskId);
-
-        return {
-          ...prev,
-          columns: {
-            ...prev.columns,
-            [startColumnId]: { ...sourceCol, taskIds: sourceTaskIds },
-            [targetColumnId]: { ...targetCol, taskIds: targetTaskIds },
-          },
-        };
-      });
-
-      handleDropOnBackend(taskToMove, targetColumnId, previousBoard);
-    } else {
-      // Reordenar dentro da mesma coluna
-      const targetIndex = board.columns[startColumnId].taskIds.indexOf(overId);
-      const sourceIndex = board.columns[startColumnId].taskIds.indexOf(taskId);
-
-      if (
-        targetIndex !== -1 &&
-        sourceIndex !== -1 &&
-        targetIndex !== sourceIndex
-      ) {
-        setBoard(prev => {
-          if (!prev) return prev;
-          const newTaskIds = arrayMove(
-            prev.columns[startColumnId].taskIds,
-            sourceIndex,
-            targetIndex
-          );
-          return {
-            ...prev,
-            columns: {
-              ...prev.columns,
-              [startColumnId]: {
-                ...prev.columns[startColumnId],
-                taskIds: newTaskIds,
-              },
-            },
-          };
-        });
-      }
-    }
-  };
-
-  if (loading && isInitialLoad.current) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="animate-spin h-12 w-12 text-indigo-600" />
-      </div>
-    );
-  }
-
-  if (!board?.columnOrder?.length) {
-    return (
-      <div className="p-6 text-center text-red-600">
-        Erro: Configuração inválida.
-      </div>
-    );
-  }
-
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="container mx-auto p-4 md:p-6">
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <AlertCircle size={20} />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="p-1 hover:bg-red-200 rounded"
-              aria-label="Fechar"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
-
-        {/* Modais */}
-        <NewTaskModal
-          isOpen={isNewTaskModalOpen}
-          onClose={handleCloseModals}
-          users={users}
-          allTags={tags}
-          onTaskCreated={handleTaskCreated}
-          targetColumn={targetColumn || board.columnOrder[0]}
-        />
-
-        {selectedTask && (
-          <TaskDetailModal
-            isOpen={isDetailModalOpen}
-            onClose={handleCloseModals}
-            task={board.tasks[selectedTask.id] || selectedTask}
-            users={users}
-            allTags={tags}
-            onTaskUpdated={handleTaskUpdated}
-            onTaskDeleted={handleTaskDeleted}
-            loggedInUser={loggedInUser}
-          />
-        )}
-
-        <ManageTagsModal
-          isOpen={isManageTagsModalOpen}
-          onClose={() => setIsManageTagsModalOpen(false)}
-          tags={tags}
-          onCreateTag={handleCreateTag}
-          onDeleteTag={handleDeleteTag}
-        />
-
-        {/* Cabeçalho */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Quadro de Tarefas</h1>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setIsManageTagsModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-sm"
-            >
-              <Settings size={16} /> Etiquetas ({Object.keys(tags).length})
-            </button>
-            <button
-              onClick={() => handleOpenNewTaskModal(board.columnOrder[0])}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm"
-            >
-              <PlusCircle size={16} /> Nova Tarefa
-            </button>
-          </div>
-        </div>
-
-        {/* Quadro */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {board.columnOrder.map(columnId => {
-            const column = board.columns[columnId];
-            if (!column) return null;
-
-            const columnTasks = (Array.isArray(column.taskIds)
-              ? column.taskIds
-              : []
-            )
-              .map(id => board.tasks[id])
-              .filter(task => !!task);
-
-            return (
-              <div
-                key={column.id}
-                className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 min-h-[300px] flex flex-col shadow-sm border"
-              >
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-gray-700 text-lg capitalize">
-                    {column.title}{' '}
-                    <span className="text-sm text-gray-500">
-                      ({columnTasks.length})
-                    </span>
-                  </h3>
-                  <button
-                    onClick={() => handleOpenNewTaskModal(column.id)}
-                    className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full"
-                    aria-label={`Add to ${column.title}`}
-                  >
-                    <PlusCircle size={20} />
-                  </button>
-                </div>
-
-                <DroppableColumn column={column}>
-                  <SortableContext
-                    items={column.taskIds}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-3 flex-grow overflow-y-auto pr-1 min-h-[100px]">
-                      {columnTasks.length > 0 ? (
-                        columnTasks.map(task => (
-                          <SortableTaskItem
-                            key={task.id}
-                            task={task as Task}
-                            onClick={handleOpenDetailModal}
-                          />
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500 italic text-center mt-4">
-                          Vazio.
-                        </p>
-                      )}
-                    </div>
-                  </SortableContext>
-                </DroppableColumn>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Drag overlay */}
-      <DragOverlay>
-        {activeTask ? (
-          <TaskCard
-            task={activeTask}
-            style={{
-              borderTop: `4px solid ${
-                activeTask.etiquetas?.[0]?.color || 'transparent'
-              }`,
-            }}
-          />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
-  );
-};
-
-// --- Coluna droppable ---
 const DroppableColumn = ({
-  column,
+  id,
   children,
 }: {
-  column: TaskBoard['columns'][string];
+  id: string;
   children: React.ReactNode;
 }) => {
-  const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
-  });
-
+  const { setNodeRef } = useDroppable({ id });
   return (
-    <div
-      ref={setNodeRef}
-      className={`flex-grow rounded-md transition-colors ${
-        isOver ? 'bg-indigo-100' : 'bg-transparent'
-      }`}
-    >
+    <div ref={setNodeRef} className="flex flex-col gap-3 min-h-[120px]">
       {children}
     </div>
   );
 };
 
-// --- Item sortável ---
-const SortableTaskItem = ({
+const SortableTaskCard = ({
   task,
   onClick,
 }: {
   task: Task;
-  onClick: (task: Task) => void;
+  onClick: (t: Task) => void;
 }) => {
   const {
     attributes,
@@ -2052,24 +1299,405 @@ const SortableTaskItem = ({
     isDragging,
   } = useSortable({ id: task.id });
 
-  const firstTagColor = task.etiquetas?.[0]?.color || 'transparent';
-
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
-    borderTop: `4px solid ${firstTagColor}`,
+    opacity: isDragging ? 0.6 : 1,
   };
 
   return (
     <TaskCard
       task={task}
+      onClick={onClick}
       innerRef={setNodeRef}
       style={style}
-      onClick={() => onClick(task)}
       {...attributes}
       {...listeners}
     />
+  );
+};
+
+// ======================== PÁGINA PRINCIPAL ========================
+
+type TaskOwnerFilter = "all" | "mine" | "general";
+
+const TaskBoardPage: React.FC = () => {
+  const { user } = useAuth();
+  const location = useLocation();
+
+  // projectId vindo da URL: /tasks?projectId=uuid
+  const searchParams = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search]
+  );
+  const projectId = searchParams.get("projectId");
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [tags, setTags] = useState<Record<string, Tag>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [newTaskStatus, setNewTaskStatus] = useState<string>("a fazer");
+
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  const [showManageTags, setShowManageTags] = useState(false);
+
+  // ======= ESTADOS DE FILTRO =======
+  const [taskOwnerFilter, setTaskOwnerFilter] = useState<TaskOwnerFilter>("all");
+  const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 100, tolerance: 5 },
+    })
+  );
+
+  const columns = ["a fazer", "em andamento", "em revisão", "concluído"];
+
+  const loadTasksForProject = async (projId: string | null) => {
+    const raw = await apiGetTasksRaw();
+    const normalized: Task[] = raw.map((t) => normalizeTask(t));
+
+    let projectTasks = normalized;
+
+    if (projId) {
+      projectTasks = normalized.filter((t) => t.projectId === projId);
+    }
+
+    setTasks(projectTasks);
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [usersRes, tagsRes] = await Promise.all([
+          apiGetUsers(),
+          apiGetTags(),
+        ]);
+
+        setUsers(usersRes);
+        setTags(transformTagsArrayToObject(tagsRes));
+
+        await loadTasksForProject(projectId);
+      } catch (e: any) {
+        setError(e.message || "Erro ao carregar dados");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [projectId]);
+
+  const handleDragStart = (evt: DragStartEvent) => {
+    setDraggingId(String(evt.active.id));
+  };
+
+  const handleDragEnd = async (evt: DragEndEvent) => {
+    const { active, over } = evt;
+    setDraggingId(null);
+    if (!over) return;
+
+    const taskId = String(active.id);
+    const overId = String(over.id);
+
+    const overTask = tasks.find((t) => t.id === overId);
+    const newStatus = overTask ? overTask.status : overId;
+
+    if (!columns.includes(newStatus)) return;
+
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, status: newStatus } : t
+      )
+    );
+
+    try {
+      await apiUpdateTask(taskId, { status: newStatus });
+    } catch {
+      // se falhar, recarrega tasks daquele projeto
+      await loadTasksForProject(projectId);
+    }
+  };
+
+  const handleTaskCreated = (t: Task) => {
+    // garante que a tarefa criada pertence ao projeto atual
+    if (!projectId || t.projectId === projectId) {
+      setTasks((prev) => [...prev, t]);
+    }
+  };
+
+  const handleTaskUpdated = (t: Task) => {
+    setTasks((prev) =>
+      prev.map((x) => (x.id === t.id ? t : x))
+    );
+    setSelectedTask(t);
+  };
+
+  const handleTaskDeleted = (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // ======= LÓGICA DE FILTRO =======
+  const filteredTasks = useMemo(() => {
+    let result = [...tasks];
+
+    // 1) filtro por dono
+    if (taskOwnerFilter === "mine" && user?.id) {
+      result = result.filter((t) => {
+        const userIds = t.userIds ?? [];
+        const usersArr = t.users ?? [];
+        return (
+          userIds.includes(user.id) ||
+          usersArr.some((u) => u.id === user.id)
+        );
+      });
+    } else if (taskOwnerFilter === "general") {
+      // tarefas gerais: sem responsáveis
+      result = result.filter((t) => {
+        const userIds = t.userIds ?? [];
+        const usersArr = t.users ?? [];
+        return (userIds.length === 0) && (usersArr.length === 0);
+      });
+    }
+
+    // 2) filtro por etiquetas
+    if (tagFilterIds.length > 0) {
+      result = result.filter((t) => {
+        const etiquetaIds =
+          t.etiquetaIds && t.etiquetaIds.length > 0
+            ? t.etiquetaIds
+            : (t.etiquetas ?? []).map((e) => e.id);
+        if (!etiquetaIds || etiquetaIds.length === 0) return false;
+        return etiquetaIds.some((id) => tagFilterIds.includes(id));
+      });
+    }
+
+    return result;
+  }, [tasks, taskOwnerFilter, tagFilterIds, user?.id]);
+
+  const toggleTagFilter = (id: string) => {
+    setTagFilterIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const clearFilters = () => {
+    setTaskOwnerFilter("all");
+    setTagFilterIds([]);
+  };
+
+  const projectTitle = useMemo(() => {
+    if (projectId) {
+      const withName = tasks.find((t) => t.projectName);
+      if (withName?.projectName) return withName.projectName;
+      return "Projeto selecionado";
+    }
+    return "Geral / Todos os projetos";
+  }, [projectId, tasks]);
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <Loader2 className="animate-spin h-8 w-8 text-indigo-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-4">
+      {error && (
+        <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={18} />
+            <span className="text-sm">{error}</span>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-sm hover:underline"
+          >
+            Fechar
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">
+              Quadro de Tarefas
+            </h2>
+            <p className="text-sm text-gray-600">
+              {projectId ? `Projeto: ${projectTitle}` : projectTitle}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowManageTags(true)}
+              className="px-3 py-2 bg-white border border-gray-300 rounded-md text-xs sm:text-sm flex items-center gap-2 hover:bg-gray-50"
+            >
+              <Settings size={16} />
+              Etiquetas
+            </button>
+            <button
+              onClick={() => {
+                setNewTaskStatus("a fazer");
+                setShowNewTaskModal(true);
+              }}
+              className="px-3 py-2 bg-indigo-600 text-white rounded-md text-xs sm:text-sm flex items-center gap-2 hover:bg-indigo-700"
+            >
+              <PlusCircle size={16} />
+              Nova Tarefa
+            </button>
+          </div>
+        </div>
+
+        {/* ======= BARRA DE FILTROS ======= */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-700">
+              Mostrar:
+            </span>
+            <select
+              value={taskOwnerFilter}
+              onChange={(e) => setTaskOwnerFilter(e.target.value as TaskOwnerFilter)}
+              className="text-xs sm:text-sm px-2 py-1 border border-gray-300 rounded-md bg-white"
+            >
+              <option value="all">Todas as tarefas</option>
+              <option value="mine">Minhas tarefas</option>
+              <option value="general">Tarefas gerais (sem responsável)</option>
+            </select>
+          </div>
+
+          <div className="flex-1">
+            <span className="block text-xs font-medium text-gray-700 mb-1">
+              Filtrar por etiquetas:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {Object.values(tags).map((tag) => {
+                const sel = tagFilterIds.includes(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => toggleTagFilter(tag.id)}
+                    className={`px-2 py-1 rounded-full text-[0.70rem] font-semibold border ${
+                      sel ? "text-white" : "text-gray-700"
+                    }`}
+                    style={{
+                      backgroundColor: sel ? tag.color : "#fff",
+                      borderColor: tag.color,
+                    }}
+                  >
+                    {tag.nome}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs text-gray-600 hover:text-gray-800 underline"
+            >
+              Limpar filtros
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {columns.map((col) => {
+            const tasksInColumn = filteredTasks.filter(
+              (t) => t.status === col
+            );
+            return (
+              <div
+                key={col}
+                className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700 capitalize">
+                    {col}{" "}
+                    <span className="text-xs text-gray-500">
+                      ({tasksInColumn.length})
+                    </span>
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setNewTaskStatus(col);
+                      setShowNewTaskModal(true);
+                    }}
+                    className="text-gray-400 hover:text-indigo-600"
+                    title="Nova tarefa nesta coluna"
+                  >
+                    <PlusCircle size={18} />
+                  </button>
+                </div>
+
+                <DroppableColumn id={col}>
+                  <SortableContext
+                    items={tasksInColumn.map((t) => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {tasksInColumn.map((t) => (
+                      <SortableTaskCard
+                        key={t.id}
+                        task={t}
+                        onClick={(task) => setSelectedTask(task)}
+                      />
+                    ))}
+                  </SortableContext>
+                </DroppableColumn>
+              </div>
+            );
+          })}
+        </div>
+      </DndContext>
+
+      <NewTaskModal
+        isOpen={showNewTaskModal}
+        onClose={() => setShowNewTaskModal(false)}
+        users={users}
+        allTags={tags}
+        onTaskCreated={handleTaskCreated}
+        targetStatus={newTaskStatus}
+        projectId={projectId}
+      />
+
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onTaskUpdated={handleTaskUpdated}
+          onTaskDeleted={handleTaskDeleted}
+          users={users}
+          tags={tags}
+        />
+      )}
+
+      <ManageTagsModal
+        isOpen={showManageTags}
+        onClose={() => setShowManageTags(false)}
+        tags={tags}
+        onTagsChange={setTags}
+      />
+    </div>
   );
 };
 

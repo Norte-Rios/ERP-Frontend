@@ -158,7 +158,7 @@ const AppRoutes = (props: AppRoutesProps) => {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="tasks" element={<TaskBoardPage initialBoard={props.taskBoard} />} />
+             <Route path="tasks" element={<TaskBoardPage />} />
               <Route path="agenda" element={<AgendaPage services={props.services} />} />
               <Route path="meet" element={<MeetPage />} />
               <Route path="users" element={<UserListPage />} />

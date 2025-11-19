@@ -1,48 +1,60 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios'; // <- Descomentado
+import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Calendar, CheckSquare, Video, Loader2, Users } from 'lucide-react'; // Adicionado Users
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { useAuth } from '../../../auth/AuthContext.tsx'; 
+import { Calendar, CheckSquare, Video, Loader2 } from 'lucide-react';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from 'recharts';
+import { useAuth } from '../../../auth/AuthContext.tsx';
 
-// Tipos (simplificados, ajuste conforme necessário)
+// ====================== TIPOS CORRIGIDOS ======================
+interface TaskUser {
+  id: string;
+  nome: string;
+  email?: string;
+  role?: string;
+  status?: string;
+  avatar?: any;
+}
+
 interface Task {
   id: string;
   titulo: string;
-  status: string; // 'a fazer', 'em andamento', 'concluído', etc.
+  status: string;
   data?: string;
-  user?: { id: string; nome: string };
+  description?: string;
+  prazo?: string | null;
+  user: TaskUser[]; // ← AGORA É ARRAY!
+  etiqueta?: Array<{ id: string; nome: string; color: string }>;
 }
 
 interface Meet {
   id: string;
   titulo: string;
-  data: string; // YYYY-MM-DD
-  horarioIni: string; // HH:MM
-  horarioFim: string; // HH:MM
+  data: string;
+  horarioIni: string;
+  horarioFim: string;
   googleMeetLink?: string;
 }
 
 interface Event {
-    summary: string;
-    start: { dateTime?: string; date?: string };
-    end: { dateTime?: string; date?: string };
-    id?: string;
+  summary: string;
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+  id?: string;
 }
 
-interface User {
-  id: string;
-  nome: string;
-  email: string;
-  role: string;
-  status: string; // 'Ativo', 'Inativo'
-}
-
-// --- DADOS MOCK REMOVIDOS ---
-
-// Componente de Card de Métrica
-const MetricCard = ({ title, value, icon: Icon, color, linkTo }: any) => ( // Adicionado 'any' para simplicidade
-  <Link to={linkTo} className={`block p-6 rounded-lg shadow-md flex items-start justify-between ${color} text-white hover:opacity-90 transition-opacity`}>
+// ====================== CARD ======================
+const MetricCard = ({ title, value, icon: Icon, color, linkTo }: any) => (
+  <Link
+    to={linkTo}
+    className={`block p-6 rounded-lg shadow-md flex items-start justify-between ${color} text-white hover:opacity-90 transition-opacity`}
+  >
     <div>
       <h3 className="text-sm font-medium text-white/80">{title}</h3>
       <p className="mt-2 text-3xl font-bold">{value}</p>
@@ -51,68 +63,70 @@ const MetricCard = ({ title, value, icon: Icon, color, linkTo }: any) => ( // Ad
   </Link>
 );
 
-// Componente Principal do Dashboard Operacional
+// ====================== DASHBOARD ======================
 const OperationalDashboardPage: React.FC = () => {
-  const { user } = useAuth(); // Pega o usuário logado do contexto
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meets, setMeets] = useState<Meet[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
-  // const [users, setUsers] = useState<User[]>([]); // 'users' não é usado neste componente
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Usar import.meta.env
   const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
   const googleId = localStorage.getItem('googleId');
 
+  // Normalização forte de status
+  const normalizeStatus = (rawStatus: any): string => {
+    if (!rawStatus) return 'Sem Status';
+    const s = String(rawStatus).trim().toLowerCase();
+    if (s.includes('a fazer') || s.includes('pendente') || s.includes('todo')) return 'A fazer';
+    if (s.includes('andamento') || s.includes('progresso') || s.includes('doing')) return 'Em andamento';
+    if (s.includes('conclu') || s.includes('feito') || s.includes('done') || s.includes('finaliz') || s.includes('revisão')) return 'Concluído';
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
+
+  // ====================== FETCH ======================
   useEffect(() => {
     if (!user?.id) {
       setLoading(false);
-      setError('Não foi possível identificar o usuário logado.');
+      setError('Usuário não identificado.');
       return;
     }
 
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      try {
-        // CORREÇÃO 1: Tipar o array de promises como 'any[]'
-        const fetchPromises: Promise<any>[] = [
-          axios.get(`${API_URL}/tasks`), // Busca TODAS as tarefas
-        ];
 
-        // Só busca eventos e meets se tiver googleId
+      try {
+        const promises: Promise<any>[] = [axios.get(`${API_URL}/tasks`)];
+
         if (googleId) {
-          fetchPromises.push(axios.get(`${API_URL}/google/events/${googleId}`));
-          fetchPromises.push(axios.get(`${API_URL}/google/meets/${googleId}`));
+          promises.push(axios.get(`${API_URL}/google/events/${googleId}`));
+          promises.push(axios.get(`${API_URL}/google/meets/${googleId}`));
         } else {
-          console.warn('Google ID não encontrado. Não foi possível buscar eventos e meets.');
-          // CORREÇÃO 2: Usar 'as any' para bater com o tipo do array
-           fetchPromises.push(Promise.resolve({ data: [] } as any)); // Para events
-           fetchPromises.push(Promise.resolve({ data: [] } as any)); // Para meets
+          promises.push(Promise.resolve({ data: [] }));
+          promises.push(Promise.resolve({ data: [] }));
         }
 
-        const [tasksRes, eventsRes, meetsRes] = await Promise.all(fetchPromises);
+        const [tasksRes, eventsRes, meetsRes] = await Promise.all(promises);
 
-        // Filtra as tarefas no frontend para mostrar apenas as do usuário logado
         const allTasks: Task[] = tasksRes.data || [];
-        const myTasks = allTasks.filter(task => task.user?.id === user.id);
+
+        // FILTRAGEM CORRETA: user é um array de responsáveis
+        const myTasks = allTasks.filter((task) =>
+          Array.isArray(task.user) &&
+          task.user.some((u) => u.id === user.id)
+        );
+
+        console.log('TODAS as tarefas:', allTasks.length);
+        console.log('Minhas tarefas (atribuídas a mim):', myTasks);
 
         setTasks(myTasks);
         setEvents(eventsRes.data || []);
         setMeets(meetsRes.data || []);
       } catch (err: any) {
-        console.error('Erro ao buscar dados do dashboard:', err);
-        let errorMsg = 'Erro ao carregar dados do dashboard.';
-        if (err.response?.status === 401) {
-          errorMsg = 'Sessão expirada ou inválida. Faça login novamente.';
-        } else if (err.message) {
-          errorMsg = err.message;
-        }
-        setError(errorMsg);
-        setTasks([]);
-        setEvents([]);
-        setMeets([]);
+        console.error('Erro no dashboard:', err);
+        setError('Erro ao carregar dados.');
       } finally {
         setLoading(false);
       }
@@ -121,16 +135,36 @@ const OperationalDashboardPage: React.FC = () => {
     fetchData();
   }, [user?.id, API_URL, googleId]);
 
-  // --- Cálculos para os Cards e Gráficos ---
-  const taskSummary = useMemo(() => {
-    const pending = tasks.filter(t => t.status?.toLowerCase() === 'a fazer').length;
-    return { pending };
+  // ====================== DADOS DO GRÁFICO ======================
+  const taskStatusData = useMemo(() => {
+    if (tasks.length === 0) return [];
+
+    const counts: Record<string, number> = {};
+
+    tasks.forEach((task) => {
+      const status = normalizeStatus(task.status);
+      counts[status] = (counts[status] || 0) + 1;
+    });
+
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
   }, [tasks]);
+
+  const COLORS = ['#FF8042', '#00C49F', '#FFBB28', '#0088FE', '#FF6B6B'];
+
+  // ====================== OUTROS MEMOS ======================
+  const taskSummary = useMemo(() => ({
+    pending: tasks.filter(t => normalizeStatus(t.status) === 'A fazer').length,
+  }), [tasks]);
 
   const upcomingEvents = useMemo(() => {
     const now = new Date();
     return events
-      .map(e => ({ ...e, startDateTime: new Date(e.start?.dateTime || `${e.start?.date}T00:00:00`) }))
+      .map(e => ({
+        ...e,
+        startDateTime: new Date(e.start?.dateTime || `${e.start?.date || ''}T00:00:00`),
+      }))
       .filter(e => e.startDateTime >= now)
       .sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
       .slice(0, 5);
@@ -139,25 +173,16 @@ const OperationalDashboardPage: React.FC = () => {
   const upcomingMeets = useMemo(() => {
     const now = new Date();
     return meets
-      .map(m => ({ ...m, startDateTime: new Date(`${m.data}T${m.horarioIni}`) }))
+      .map(m => ({
+        ...m,
+        startDateTime: new Date(`${m.data}T${m.horarioIni}`),
+      }))
       .filter(m => m.startDateTime >= now)
       .sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
       .slice(0, 5);
   }, [meets]);
 
-  // Dados para o gráfico de status das tarefas
-  const taskStatusData = useMemo(() => {
-    const statusCounts = tasks.reduce((acc, task) => {
-      const statusKey = task.status || 'Sem Status';
-      (acc as any)[statusKey] = ((acc as any)[statusKey] || 0) + 1;
-      return acc;
-    }, {});
-    return Object.entries(statusCounts).map(([name, value]) => ({ name, value: value as number }));
-  }, [tasks]);
-
-  const COLORS = ['#FFBB28', '#00C49F', '#FF8042', '#0088FE'];
-
-  // --- Renderização ---
+  // ====================== RENDER ======================
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -168,138 +193,109 @@ const OperationalDashboardPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded m-6" role="alert">
-        <strong className="font-bold">Erro!</strong>
-        <span className="block sm:inline ml-2">{error}</span>
+      <div className="bg-red-100 border border-red-400 text-red-700 p-6 rounded-lg m-6">
+        <strong>Erro: </strong>{error}
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
+    <div className="space-y-8 p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-800">Meu Dashboard</h1>
 
-      {/* Cards de Métricas */}
+      {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <MetricCard
-          title="Minhas Tarefas Pendentes"
-          value={taskSummary.pending}
-          icon={CheckSquare}
-          color="bg-brand-orange"
-          linkTo="/operational/tasks"
-        />
-        <MetricCard
-          title="Meus Próximos Eventos"
-          value={upcomingEvents.length}
-          icon={Calendar}
-          color="bg-brand-teal"
-          linkTo="/operational/agenda"
-        />
-        <MetricCard
-          title="Minhas Próximas Reuniões"
-          value={upcomingMeets.length}
-          icon={Video}
-          color="bg-brand-green-light"
-          linkTo="/operational/meet"
-        />
+        <MetricCard title="Tarefas Pendentes" value={taskSummary.pending} icon={CheckSquare} color="bg-brand-orange" linkTo="/operational/tasks" />
+        <MetricCard title="Próximos Eventos" value={upcomingEvents.length} icon={Calendar} color="bg-brand-teal" linkTo="/operational/agenda" />
+        <MetricCard title="Próximas Reuniões" value={upcomingMeets.length} icon={Video} color="bg-brand-green-light" linkTo="/operational/meet" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Gráfico de Status das Tarefas */}
-        <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Status das Minhas Tarefas</h3>
-          {tasks.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
+        {/* GRÁFICO */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Status das Minhas Tarefas
+          </h3>
+
+          {taskStatusData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={340}>
               <PieChart>
                 <Pie
                   data={taskStatusData}
+                  dataKey="value"
+                  nameKey="name"
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  // CORREÇÃO 3: Converter 'percent' para 'Number'
-                  label={({ name, percent }) => `${name} (${(Number(percent) * 100).toFixed(0)}%)`}
+                  outerRadius={110}
+                  innerRadius={60}
+                  paddingAngle={4}
+                  label={({ name, value }) => `${name}: ${value}`}
                 >
-                  {taskStatusData.map((entry, index) => (
+                  {taskStatusData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend iconType="circle" />
+                <Tooltip formatter={(v: number) => `${v} tarefa(s)`} />
+                <Legend verticalAlign="bottom" />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-gray-500 text-center mt-10">Nenhuma tarefa atribuída a você.</p>
+            <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg text-gray-500">
+              <p className="text-center">
+                <strong>Nenhuma tarefa atribuída a você ainda.</strong><br />
+                Total de tarefas no sistema: {tasks.length === 0 ? 'carregando...' : tasks.length}
+              </p>
+            </div>
           )}
         </div>
 
-        {/* Listas Rápidas */}
+        {/* Listas rápidas */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Próximos Eventos da Agenda */}
+          {/* Eventos */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Próximos Eventos (Agenda)</h3>
-              <Link to="/operational/agenda" className="text-sm font-semibold text-indigo-600 hover:underline">
-                Ver Agenda
-              </Link>
+              <h3 className="text-lg font-semibold">Próximos Eventos</h3>
+              <Link to="/operational/agenda" className="text-indigo-600 hover:underline text-sm">Ver todos</Link>
             </div>
-            <div className="space-y-3 max-h-60 overflow-y-auto">
-              {upcomingEvents.length > 0 ? (
-                upcomingEvents.map((event, index) => (
-                  <div key={event.id || `event-${index}`} className="p-3 border rounded-md bg-gray-50">
-                    <p className="font-semibold text-sm text-gray-800">{event.summary}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(event.start?.dateTime || `${event.start?.date}T00:00:00`).toLocaleString('pt-BR', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500">Nenhum evento próximo na agenda.</p>
-              )}
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {upcomingEvents.length > 0 ? upcomingEvents.map((e, i) => (
+                <div key={e.id || i} className="p-3 bg-gray-50 rounded border">
+                  <p className="font-medium text-sm">{e.summary}</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(e.start?.dateTime || e.start?.date || '').toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              )) : <p className="text-gray-500 text-sm">Nenhum evento próximo.</p>}
             </div>
           </div>
 
-          {/* Próximas Reuniões */}
+          {/* Reuniões */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Próximas Reuniões (Meet)</h3>
-              <Link to="/operational/meet" className="text-sm font-semibold text-indigo-600 hover:underline">
-                Ver Meets
-              </Link>
+              <h3 className="text-lg font-semibold">Próximas Reuniões</h3>
+              <Link to="/operational/meet" className="text-indigo-600 hover:underline text-sm">Ver todas</Link>
             </div>
-            <div className="space-y-3 max-h-60 overflow-y-auto">
-              {upcomingMeets.length > 0 ? (
-                upcomingMeets.map(meet => (
-                  <div key={meet.id} className="p-3 border rounded-md bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <p className="font-semibold text-sm text-gray-800 flex-1 mr-2">{meet.titulo}</p>
-                      {meet.googleMeetLink && (
-                        <a
-                          href={meet.googleMeetLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 flex-shrink-0"
-                        >
-                          Entrar
-                        </a>
-                      )}
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {upcomingMeets.length > 0 ? upcomingMeets.map(meet => (
+                <div key={meet.id} className="p-3 bg-gray-50 rounded border">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm truncate">{meet.titulo}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(`${meet.data}T${meet.horarioIni}`).toLocaleString('pt-BR', {
+                          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(`${meet.data}T${meet.horarioIni}`).toLocaleString('pt-BR', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
-                    </p>
+                    {meet.googleMeetLink && (
+                      <a href={meet.googleMeetLink} target="_blank" rel="noopener noreferrer"
+                        className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 whitespace-nowrap">
+                        Entrar
+                      </a>
+                    )}
                   </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500">Nenhuma reunião próxima agendada.</p>
-              )}
+                </div>
+              )) : <p className="text-gray-500 text-sm">Nenhuma reunião agendada.</p>}
             </div>
           </div>
         </div>
